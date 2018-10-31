@@ -1,0 +1,15 @@
+[package]
+name = "circle-collision"
+version = "0.1.0"
+authors = ["Zachary Stewart <zstewart@google.com>"]
+
+[features]
+debug-timing = []
+
+[dependencies]
+bitflags = "1.0"
+specs = "0.11"
+
+[dependencies.xsecurelock-saver]
+path = "../"
+features = ["engine"]

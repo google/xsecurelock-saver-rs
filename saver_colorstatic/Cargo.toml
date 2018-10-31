@@ -1,0 +1,9 @@
+[package]
+name = "saver_colorstatic"
+version = "0.1.0"
+authors = ["Zachary Stewart <zstewart@google.com>"]
+
+[dependencies]
+rand = "0.5"
+sfml = { git = "https://github.com/jeremyletang/rust-sfml.git", branch = "master" }
+xsecurelock-saver = { path = "../" }
