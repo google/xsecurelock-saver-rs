@@ -1,9 +1,10 @@
 # XSecureLock Saver
 
-A library for creating 2D screensavers for XSecureLock in Rust, using
-[SFML][sfml], and optionally [specs][specs] ECS.
+A library for creating 2D screensavers for [XSecureLock][xsecurelock] in Rust,
+using [SFML][sfml], and optionally [specs][specs] ECS.
 
-[smfl]: https://www.sfml-dev.org/
+[xsecurelock]: https://github.com/google/xsecurelock
+[sfml]: https://www.sfml-dev.org/
 [specs]: https://github.com/slide-rs/specs
 
 This library has two modes, a DIY SFML mode (the default), and an
