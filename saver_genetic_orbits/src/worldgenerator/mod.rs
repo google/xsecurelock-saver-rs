@@ -58,10 +58,20 @@ use circle_collision::CircleCollider;
 use gravity::{GravitySource, GravityTarget};
 
 use collision;
+
 use model::{Planet, Scenario, World};
 use statustracker;
 use statustracker::ActiveWorld;
 use storage::Storage;
+use config::generator::{
+    GeneratorConfig,
+    MutationParameters,
+    NewWorldParameters,
+    Distribution as ConfDist,
+    ExponentialDistribution,
+    NormalDistribution,
+    UniformDistribution,
+};
 use self::per_thread_rng::PerThreadRng;
 
 pub mod per_thread_rng;
@@ -96,16 +106,18 @@ where T: Storage + Default + Send + Sync + 'static
 {
     type SystemData = (
         Entities<'a>,
+        Read<'a, GeneratorConfig>,
         Read<'a, LazyUpdate>,
         Write<'a, T>,
         Write<'a, ActiveWorld>,
     );
 
-    fn load(&mut self, (entities, lazy, mut storage, mut status,): Self::SystemData) {
-        let parent = self.pick_scenario(&mut *storage);
+    fn load(&mut self, (entities, config, lazy, mut storage, mut status,): Self::SystemData) {
+        let parent = self.pick_scenario(&mut *storage, &*config);
         let new_world = match parent {
-            Some(ref parent) => self.generate_child_world(&parent.world),
-            None => self.generate_new_world(),
+            Some(ref parent) => self.generate_child_world(
+                &parent.world, &config.mutation_parameters),
+            None => self.generate_new_world(&config.new_world_parameters),
         };
 
         for planet in new_world.planets.iter() {
@@ -152,7 +164,7 @@ where T: Storage + Default + Send + Sync + 'static
 
 impl<T: Storage, R: Rng> WorldGenerator<T, R> {
     /// Picks a scenario to mutate or None if a new scenario should be generated.
-    fn pick_scenario(&mut self, storage: &mut T) -> Option<Scenario> {
+    fn pick_scenario(&mut self, storage: &mut T, config: &GeneratorConfig) -> Option<Scenario> {
         let num_scenarios = match storage.num_scenarios() {
             Ok(ns) if ns < 0 => {
                 println!("Unexpected negative number of scenarios: {}", ns);
@@ -168,7 +180,7 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
                 return None;
             },
         };
-        let picked_scenario = self.select_index(num_scenarios);
+        let picked_scenario = self.select_index(num_scenarios, config);
         match storage.get_nth_scenario_by_score(picked_scenario) {
             Ok(Some(scenario)) => {
                 println!(
@@ -198,17 +210,13 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
     /// Selects a random index from the number of scenarios. The selected index may be out of range.
     /// Uses an exponential distribution where the probability of choosing an out of range index (and
     /// thus starting a new scenario) is 5%.
-    fn select_index(&mut self, num_items: i64) -> i64 {
+    fn select_index(&mut self, num_items: i64, config: &GeneratorConfig) -> i64 {
         assert!(num_items > 0);
         // The CDF of the exponential distribution is f(x) = 1-e^(-lx). In order to have
         // P probability of getting a value in-range, we want to choose l such that 
         // f(num-scenarios) = P. Therefore we solve for l: 
         // l = -ln(1 - P) / num-scenarios
-        // We precompute -ln(1 - P) here as the negative log of the probability of generating a new
-        // scenario:
-        // -ln(1 - .95) -> -(0.05f64.ln()))
-        const NEW_SCENARIO_NEGATIVE_LOG_PROBABILITY: f64 = 2.995732273553991; 
-        let lambda = NEW_SCENARIO_NEGATIVE_LOG_PROBABILITY / (num_items as f64 + 1.);
+        let lambda = -(config.create_new_scenario_probability.ln()) / (num_items as f64 + 1.);
         let dist = Exp::new(lambda);
         dist.sample(&mut self.rng) as i64
     }
@@ -216,15 +224,16 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
 
 impl<T, R: Rng> WorldGenerator<T, R> {
     /// Randomly generate a new world.
-    fn generate_new_world(&mut self) -> World {
-        const MAX_PLANETS: usize = 1000;
-        const MIN_PLANETS: usize = 1;
-        // -ln(1 - .99999) / 1000 = 99.999% chance of choosing fewer than 1000 planets.
-        const NUM_PLANETS_LAMBDA: f64 = 0.01151292546497023;
-        let num_planets_dist = Exp::new(NUM_PLANETS_LAMBDA);
-        let num_planets = num_planets_dist.sample(&mut self.rng) as usize;
-        let num_planets = MAX_PLANETS.min(num_planets);
-        let num_planets = MIN_PLANETS.max(num_planets);
+    fn generate_new_world(&mut self, params: &NewWorldParameters) -> World {
+        let num_planets = match params.num_planets_dist {
+            ConfDist::Exponential(ExponentialDistribution(lambda)) => 
+                Exp::new(lambda).sample(&mut self.rng) as usize,
+            ConfDist::Normal(NormalDistribution{mean, standard_deviation}) => 
+                Normal::new(mean, standard_deviation).sample(&mut self.rng).round() as usize,
+            ConfDist::Uniform(UniformDistribution{min, max}) => 
+                Uniform::new_inclusive(min as usize, max as usize).sample(&mut self.rng),
+        };
+        let num_planets = params.num_planets_range.clamp_inclusive(num_planets);
 
         let mut planets = Vec::with_capacity(num_planets);
 
@@ -238,7 +247,7 @@ impl<T, R: Rng> WorldGenerator<T, R> {
     }
     
     /// Mutate the given parent world to generate a new random world.
-    fn generate_child_world(&mut self, parent: &World) -> World {
+    fn generate_child_world(&mut self, parent: &World, params: &MutationParameters) -> World {
         const MAX_PLANETS_TO_ADD: usize = 20;
         // -ln(1 - .999) / 10 = 99.9% chance of adding fewer than 10 planets.
         const ADD_PLANETS_LAMBDA: f64 = 0.6907755278982136;

@@ -23,11 +23,17 @@ extern crate rand;
 extern crate sfml;
 extern crate serde;
 extern crate serde_json;
+extern crate serde_yaml;
 
 extern crate specs;
 extern crate circle_collision;
 extern crate gravity;
 extern crate xsecurelock_saver;
+
+use std::fs;
+use std::fs::File;
+use std::io::{BufReader, ErrorKind};
+use std::path::{Path, PathBuf};
 
 use gravity::{
     GravitationalConstant,
@@ -54,18 +60,30 @@ use collision::{
     MergeCollidedPlanets,
     MergedInto,
 };
+use config::GeneticOrbitsConfig;
 use statustracker::{ActiveWorld, ScoreKeeper};
 use storage::sqlite::SqliteStorage;
 use worldgenerator::WorldGenerator;
 
 mod collision;
+mod config;
 mod model;
 mod storage;
 mod statustracker;
 mod worldgenerator;
 
 fn main() {
-    let storage = open_storage();
+    let config = get_config();
+    let storage = match &config.database.database_path {
+        Some(path) => {
+            println!("using database {}", path);
+            SqliteStorage::open(path).unwrap()
+        },
+        None => open_default_storage(),
+    };
+    
+    let GeneticOrbitsConfig { scoring, generator, .. } = config;
+
 
     EngineBuilder::new()
         .with_initial_sceneloader(WorldGenerator::<SqliteStorage>::default())
@@ -76,6 +94,8 @@ fn main() {
             matrix.enable_collision(collision::planet(), collision::planet());
             matrix
         })
+        .with_resource(scoring)
+        .with_resource(generator)
         .with_resource(storage)
         .with_resource(ActiveWorld::default())
         .with_component::<CircleCollider>()
@@ -103,12 +123,14 @@ fn main() {
         .run();
 }
 
+/// The screensaver folder name, used both for saving the database in the user data directory and
+/// for looking for configs in the 
+const SAVER_DIR: &'static str = "xsecurelock-saver-genetic-orbits";
+
 /// Open SqliteStorage somewhere, either in the user data dir or in memory.
-fn open_storage() -> SqliteStorage {
-    use std::fs;
-    use std::io::ErrorKind;
+fn open_default_storage() -> SqliteStorage {
     if let Some(mut data_dir) = dirs::data_dir() {
-        data_dir.push("xsecurelock-saver-genetic-orbits");
+        data_dir.push(SAVER_DIR);
         let create_res = fs::create_dir(&data_dir)
             .or_else(|err| if err.kind() == ErrorKind::AlreadyExists {
                 Ok(())
@@ -118,10 +140,62 @@ fn open_storage() -> SqliteStorage {
         match create_res {
             Ok(()) => {
                 data_dir.push("scenario-db.sqlite3");
+                println!("using database {:?}", data_dir);
                 return SqliteStorage::open(data_dir).unwrap();
             },
             Err(err) => println!("Unable to create storage directory ({}), opening in memory", err),
         }
     }
+    println!("using in-memory database");
     SqliteStorage::open_in_memory().unwrap()
+}
+
+/// Load the config from the user config directory.
+fn get_config() -> GeneticOrbitsConfig {
+    match find_config_file() {
+        Some(config_file) => {
+            match serde_yaml::from_reader(config_file) {
+                Ok(config) => config,
+                Err(err) => {
+                    println!("Error loading config: {}", err);
+                    Default::default()
+                },
+            }
+        },
+        None => Default::default(),
+    }
+}
+
+fn find_config_file() -> Option<BufReader<File>> {
+    let config_file = dirs::home_dir()
+        .and_then(|mut home| {
+            home.push(".xsecurelock-saver-genetic-orbits.yaml");
+            try_open_config_file(home)
+        })
+        .or_else(|| {
+            dirs::config_dir()
+                .and_then(|mut config| {
+                    config.push(SAVER_DIR);
+                    config.push("config.yaml");
+                    try_open_config_file(config)
+                })
+        });
+    let config_file = if cfg!(target_family = "unix") {
+        config_file.or_else(|| try_open_config_file(
+                PathBuf::from(r"/etc/xsecurelock-saver-genetic-orbits/config.yaml")))
+    } else {
+        config_file
+    };
+    config_file.map(BufReader::new)
+}
+
+fn try_open_config_file<P: AsRef<Path>>(b: P) -> Option<File> {
+    File::open(b.as_ref())
+        .or_else(|err| if err.kind() == ErrorKind::NotFound {
+            Err(())
+        } else {
+            println!("unable to read config file {:?}: {}", b.as_ref(), err);
+            Err(())
+        })
+        .ok()
 }

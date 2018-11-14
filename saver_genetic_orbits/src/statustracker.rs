@@ -17,6 +17,7 @@ use std::mem;
 
 use specs::{
     Join,
+    Read,
     ReadStorage,
     System,
     Write,
@@ -27,9 +28,13 @@ use xsecurelock_saver::engine::{
         Mass,
         Position,
     },
-    resources::scene::SceneChange,
+    resources::{
+        draw::View,
+        scene::SceneChange,
+    },
 };
 
+use config::scoring::ScoringConfig;
 use model::{Scenario, World};
 use storage::Storage;
 use worldgenerator::WorldGenerator;
@@ -57,9 +62,6 @@ impl Default for ActiveWorld {
     }
 }
 
-/// 60,000 milliseconds (1 minute) / 16 milliseconds per tick
-const SCORED_TICKS: u32 = 3750;
-
 pub const SCORED_SCREEN_WIDTH: f32 = 2000.;
 pub const SCORED_SCREEN_HEIGHT: f32 = 2000.;
 
@@ -68,6 +70,8 @@ pub struct ScoreKeeper<T>(PhantomData<T>);
 
 impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sync + 'static {
     type SystemData = (
+        Read<'a, ScoringConfig>,
+        Read<'a, View>,
         Write<'a, ActiveWorld>,
         Write<'a, T>,
         Write<'a, SceneChange>,
@@ -78,6 +82,8 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
     fn run(
         &mut self,
         (
+            scoring,
+            view,
             mut world_track,
             mut storage,
             mut scene_change,
@@ -85,12 +91,21 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
             masses,
         ): Self::SystemData,
     ) {
-        if world_track.ticks_completed < SCORED_TICKS {
+        if world_track.ticks_completed < scoring.scored_ticks {
+            let vertical_half_extent = scoring.scored_area.height / 2.;
+            let horizontal_half_extent = if scoring.scored_area.scale_width_by_aspect {
+                // x / y = w / w_0; w_0 * x / y = w
+                let aspect = view.size.x / view.size.y;
+                scoring.scored_area.width * aspect
+            } else {
+                scoring.scored_area.width
+            } / 2.;
+
             let mut mass_count = 0f64;
             let mut total_mass = 0f64;
             for (position, mass) in (&positions, &masses).join() {
                 let pos = position.pos();
-                if pos.x.abs() < SCORED_SCREEN_WIDTH && pos.y.abs() < SCORED_SCREEN_HEIGHT {
+                if pos.x.abs() <= horizontal_half_extent && pos.y.abs() <= vertical_half_extent {
                     mass_count += 1.;
                     total_mass += mass.linear as f64
                 }
