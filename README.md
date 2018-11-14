@@ -7,8 +7,8 @@ using [SFML][sfml], and optionally [specs][specs] ECS.
 [sfml]: https://www.sfml-dev.org/
 [specs]: https://github.com/slide-rs/specs
 
-This library has two modes, a DIY SFML mode (the default), and an
-pseud-gameengine based on specs.
+This library has two modes, a DIY SFML mode (the default), and a
+pseudo-game-engine based on specs.
 
 ## Installing
 
