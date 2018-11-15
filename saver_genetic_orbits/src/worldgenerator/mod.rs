@@ -60,17 +60,21 @@ use gravity::{GravitySource, GravityTarget};
 use collision;
 
 use model::{Planet, Scenario, World};
-use statustracker;
 use statustracker::ActiveWorld;
 use storage::Storage;
-use config::generator::{
-    GeneratorConfig,
-    MutationParameters,
-    NewWorldParameters,
-    Distribution as ConfDist,
-    ExponentialDistribution,
-    NormalDistribution,
-    UniformDistribution,
+use config::{
+    generator::{
+        GeneratorConfig,
+        MutationParameters,
+        NewPlanetParameters,
+        NewWorldParameters,
+    },
+    util::{
+        Distribution as ConfDist,
+        ExponentialDistribution,
+        NormalDistribution,
+        UniformDistribution,
+    },
 };
 use self::per_thread_rng::PerThreadRng;
 
@@ -236,9 +240,8 @@ impl<T, R: Rng> WorldGenerator<T, R> {
         let num_planets = params.num_planets_range.clamp_inclusive(num_planets);
 
         let mut planets = Vec::with_capacity(num_planets);
-
         for _ in 0..num_planets {
-            planets.push(self.generate_new_planet());
+            planets.push(self.generate_new_planet(&params.planet_parameters));
         }
 
         let mut world = World { planets };
@@ -288,7 +291,7 @@ impl<T, R: Rng> WorldGenerator<T, R> {
         }
 
         for _ in 0..num_planets_to_add {
-            world.planets.push(self.generate_new_planet());
+            world.planets.push(self.generate_new_planet(&params.new_planet_parameters));
         }
 
         world.merge_overlapping_planets();
@@ -297,30 +300,28 @@ impl<T, R: Rng> WorldGenerator<T, R> {
     }
 
     /// Generates a new randomly sized planet at a random location with random velocity.
-    fn generate_new_planet(&mut self) -> Planet {
-        const MIN_X: f32 = -statustracker::SCORED_SCREEN_WIDTH;
-        const MAX_X: f32 = statustracker::SCORED_SCREEN_WIDTH;
-        const MIN_Y: f32 = -statustracker::SCORED_SCREEN_HEIGHT;
-        const MAX_Y: f32 = statustracker::SCORED_SCREEN_HEIGHT;
-        let horizontal_dist = Uniform::new_inclusive(MIN_X, MAX_X);
-        let vertical_dist = Uniform::new_inclusive(MIN_Y, MAX_Y);
+    fn generate_new_planet(&mut self, params: &NewPlanetParameters) -> Planet {
+        let horizontal_dist = Uniform::new_inclusive(
+            params.start_position.min.x,
+            params.start_position.max.x
+        );
+        let vertical_dist = Uniform::new_inclusive(
+            params.start_position.min.y,
+            params.start_position.max.y
+        );
 
         let position = Vector::new(
             horizontal_dist.sample(&mut self.rng),
             vertical_dist.sample(&mut self.rng),
         );
 
-        const AVERAGE_HORIZONTAL_VELOCITY: f64 = 0.;
-        const HORIZONTAL_VELOCITY_STDDEV: f64 = 20.;
-        const AVERAGE_VERTICAL_VELOCITY: f64 = 0.;
-        const VERTICAL_VELOCITY_STDDEV: f64 = 20.;
         let horizontal_velocity_dist = Normal::new(
-            AVERAGE_HORIZONTAL_VELOCITY,
-            HORIZONTAL_VELOCITY_STDDEV,
+            params.start_velocity.x.mean,
+            params.start_velocity.x.standard_deviation,
         );
         let vertical_velocity_dist = Normal::new(
-            AVERAGE_VERTICAL_VELOCITY,
-            VERTICAL_VELOCITY_STDDEV,
+            params.start_velocity.y.mean,
+            params.start_velocity.y.standard_deviation,
         );
 
         let velocity = Vector::new(
@@ -328,11 +329,8 @@ impl<T, R: Rng> WorldGenerator<T, R> {
             vertical_velocity_dist.sample(&mut self.rng) as f32,
         );
 
-        const MIN_MASS: f32 = 1.;
-        const MEAN_MASS: f64 = 500.;
-        const MASS_STDDEV: f64 = 400.;
-        let mass_dist = Normal::new(MEAN_MASS, MASS_STDDEV);
-        let mass = MIN_MASS.max(mass_dist.sample(&mut self.rng) as f32);
+        let mass_dist = Normal::new(params.start_mass.mean, params.start_mass.standard_deviation);
+        let mass = params.min_start_mass.max(mass_dist.sample(&mut self.rng) as f32);
 
         Planet {
             position,

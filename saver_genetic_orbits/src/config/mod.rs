@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Contains structs used for configuring the screensaver.
+
 use self::database::DatabaseConfig;
 use self::generator::GeneratorConfig;
 use self::scoring::ScoringConfig;
@@ -19,6 +21,7 @@ use self::scoring::ScoringConfig;
 pub mod database;
 pub mod generator;
 pub mod scoring;
+pub mod util;
 
 /// Global configuration for the Genetic Orbits screensaver.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]

@@ -12,7 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-fn default_create_new_scenario_probability() -> f64 { 0.05 }
+//! Contains configuration structs for the world generator.
+
+use xsecurelock_saver::engine::components::physics::Vector;
+use config::util::{
+    Distribution,
+    ExponentialDistribution,
+    NormalDistribution,
+    Range,
+    UniformDistribution,
+    Vector as SerVec,
+};
 
 /// Tuning parameters for the world generator/mutator.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -21,7 +31,7 @@ pub struct GeneratorConfig {
     /// exponential distribution over all current scenarios. The lambda for the exponential
     /// distribution is chosen so that there is `create_new_scenario_probability` of getting an
     /// index outside of the existing scenario range, which triggers generating a new scenario.
-    #[serde(default = "default_create_new_scenario_probability")]
+    #[serde(default = "GeneratorConfig::default_create_new_scenario_probability")]
     pub create_new_scenario_probability: f64,
 
     /// The parameters affecting world mutation.
@@ -33,10 +43,14 @@ pub struct GeneratorConfig {
     pub new_world_parameters: NewWorldParameters,
 }
 
+impl GeneratorConfig {
+    fn default_create_new_scenario_probability() -> f64 { 0.05 }
+}
+
 impl Default for GeneratorConfig {
     fn default() -> Self {
         GeneratorConfig {
-            create_new_scenario_probability: default_create_new_scenario_probability(),
+            create_new_scenario_probability: Self::default_create_new_scenario_probability(),
             mutation_parameters: Default::default(),
             new_world_parameters: Default::default(),
         }
@@ -46,100 +60,118 @@ impl Default for GeneratorConfig {
 /// Parameters that control initial world generation.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MutationParameters {
+    /// The parameters affecting new planets that get added in this mutation.
+    #[serde(default)]
+    pub new_planet_parameters: NewPlanetParameters,
 }
 
 impl Default for MutationParameters {
     fn default() -> Self {
         MutationParameters {
+            new_planet_parameters: Default::default(),
         }
     }
 }
-
-fn default_num_planets_range() -> Range<usize> { Range { min: 1, max: 1000 } }
-fn default_num_planets_dist() -> Distribution {
-    // -ln(1 - .99999) / 1000 = 99.999% chance of choosing fewer than 1000 planets.
-    Distribution::Exponential(ExponentialDistribution(0.01151292546497023))
-}
-
+    
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewWorldParameters {
     /// Inclusive range over the number of planets that should be generated. Used to cap
     /// distributions with long tails. Defaults to [1, 1000].
-    #[serde(default = "default_num_planets_range")]
+    #[serde(default = "NewWorldParameters::default_num_planets_range")]
     pub num_planets_range: Range<usize>,
     /// Distribution used for selecting the number of planets to distribute over. If using a
     /// uniform distribution, the range is inclusive.
     /// The default value is an exponential distribution with lambda chosen to have a 99.999%
     /// chance of picking fewer than 1000 planets.
-    #[serde(default = "default_num_planets_dist")]
+    #[serde(default = "NewWorldParameters::default_num_planets_dist")]
     pub num_planets_dist: Distribution,
+    /// Parameters for how new planets are generated.
+    #[serde(default)]
+    pub planet_parameters: NewPlanetParameters,
+}
+
+impl NewWorldParameters {
+    fn default_num_planets_range() -> Range<usize> { Range { min: 1, max: 1000 } }
+    fn default_num_planets_dist() -> Distribution {
+        // -ln(1 - .99999) / 1000 = 99.999% chance of choosing fewer than 1000 planets.
+        Distribution::Exponential(ExponentialDistribution(0.01151292546497023))
+    }
 }
 
 impl Default for NewWorldParameters {
     fn default() -> Self {
         NewWorldParameters {
-            num_planets_range: default_num_planets_range(),
-            num_planets_dist: default_num_planets_dist(),
+            num_planets_range: Self::default_num_planets_range(),
+            num_planets_dist: Self::default_num_planets_dist(),
+            planet_parameters: Default::default(),
         }
     }
 }
 
-/// A range over a generic group of elements. May be inclusive or exclusive depending on context.
-/// Both parameters must be specified when this is specified explicitly.
+
+
+/// Parameters to control how new planets are generated.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Range<T> {
-    pub min: T,
-    pub max: T,
+pub struct NewPlanetParameters {
+    /// The distribution the generated planet's start position. Defaults to [-2000, 2000] in
+    /// both x and y to match the default scored area. Planets are spawned in a uniform
+    /// distribution over this area. Both endpoints are inclusive.
+    #[serde(default = "NewPlanetParameters::default_start_position")]
+    pub start_position: UniformDistribution<Vector>,
+    // TODO(zstewar1): support scale_width_by_aspect.
+    /// Controls the distribution of starting velocities for planets. Defaults to mean: 0,
+    /// stddev:
+    /// 20 in both x and y.
+    #[serde(default = "NewPlanetParameters::default_start_velocity")]
+    pub start_velocity: SerVec<NormalDistribution>,
+    /// A minimum limit on the starting mass of planets. Should be positve (i.e. greater than
+    /// zero). defaults to 1.
+    #[serde(default = "NewPlanetParameters::default_min_start_mass")]
+    pub min_start_mass: f32,
+    /// Controls the distribution of starting masses for planets. Defaults to mean: 500.
+    /// stddev: 400.
+    #[serde(default = "NewPlanetParameters::default_start_mass")]
+    pub start_mass: NormalDistribution,
 }
 
-impl<T> Range<T> where T: PartialOrd + Clone {
-    /// Clamps the value to be within this range, assuming the range is inclusive.
-    pub fn clamp_inclusive(&self, val: T) -> T {
-        assert!(self.min <= self.max, "min must be less than max");
-        if val < self.min {
-            self.min.clone()
-        } else if val > self.max {
-            self.max.clone()
-        } else {
-            val
+impl NewPlanetParameters {
+    fn default_start_position() -> UniformDistribution<Vector> {
+        UniformDistribution {
+            min: Vector::new(-2000., 2000.),
+            max: Vector::new(-2000., 2000.),
+        }
+    }
+    
+    fn default_start_velocity() -> SerVec<NormalDistribution> {
+        SerVec {
+            x: NormalDistribution {
+                mean: 0.,
+                standard_deviation: 20.
+            },
+            y: NormalDistribution {
+                mean: 0.,
+                standard_deviation: 20.
+            },
+        }
+    }
+    
+    fn default_min_start_mass() -> f32 { 1. }
+    
+    fn default_start_mass() -> NormalDistribution {
+        NormalDistribution {
+            mean: 500.,
+            standard_deviation: 400.,
         }
     }
 }
 
-/// A random distribution. This enum is used in places where the configuration should have a choice
-/// of several different distribution types.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Distribution {
-    /// Use an exponential distribution.
-    #[serde(rename = "exponential")]
-    Exponential(ExponentialDistribution),
-    /// Use a normal distribution.
-    #[serde(rename = "normal")]
-    Normal(NormalDistribution),
-    /// Use a uniform distribution.
-    #[serde(rename = "uniform")]
-    Uniform(UniformDistribution<f64>),
-}
-
-/// A distribution that is required to be exponential. Serializable rand::distributions::Exp.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ExponentialDistribution(pub f64);
-
-/// A distribution that is required to be normal. Serializable rand::distributions::Normal.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct NormalDistribution {
-    /// The mean of the normal distribution.
-    pub mean: f64,
-    /// The standard deviation of the normal distribution.
-    pub standard_deviation: f64,
-}
-
-/// A distribution that is required to be uniform. Serializable rand::distributions::Uniform.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct UniformDistribution<T> {
-    /// The min value for the uniform distribution (always inclusive).
-    pub min: T,
-    /// The max value for the uniform distribution (may be inclusive or exclusive depending on
-    /// context).
-    pub max: T,
+impl Default for NewPlanetParameters {
+    fn default() -> Self {
+        NewPlanetParameters {
+            start_position: Self::default_start_position(),
+            start_velocity: Self::default_start_velocity(),
+            min_start_mass: Self::default_min_start_mass(),
+            start_mass: Self::default_start_mass(),
+        }
+    }
 }

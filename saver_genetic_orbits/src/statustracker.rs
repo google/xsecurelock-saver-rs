@@ -62,9 +62,6 @@ impl Default for ActiveWorld {
     }
 }
 
-pub const SCORED_SCREEN_WIDTH: f32 = 2000.;
-pub const SCORED_SCREEN_HEIGHT: f32 = 2000.;
-
 #[derive(Default)]
 pub struct ScoreKeeper<T>(PhantomData<T>);
 

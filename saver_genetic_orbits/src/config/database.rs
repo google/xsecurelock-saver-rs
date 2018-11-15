@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Contains configuration structs for the database.
+
 /// Configuration parameters for the Sqlite Database.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct DatabaseConfig {
     /// The path to the SqliteDatabase to use. If set, the parent directory must exist and the
     /// location must be writable. Saver will never fall back to an in-memory database if this is
     /// set.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub database_path: Option<String>,
 }
