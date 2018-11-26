@@ -60,15 +60,83 @@ impl Default for GeneratorConfig {
 /// Parameters that control initial world generation.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MutationParameters {
+    /// The min and max number of planets to add. Used as a clamp on the add_planets_distribution.
+    /// Defaults to [0, 20]. Max is inclusive.
+    #[serde(default = "MutationParameters::default_add_planets_limits")]
+    pub add_planets_limits: Range<usize>,
+
+    /// Distribution over the number of new planets to add. If using a uniform distribution, the
+    /// range is inclusive. Exponential distribution rounds down, normal distribution rounds to
+    /// nearest.
+    /// The default value is an exponential distribution with lambda chosen to have a 99.9% chance
+    /// of having fewer than 10 new planets.
+    #[serde(default = "MutationParameters::default_add_planets_dist")]
+    pub add_planets_dist: Distribution,
+
     /// The parameters affecting new planets that get added in this mutation.
     #[serde(default)]
     pub new_planet_parameters: NewPlanetParameters,
+
+    /// The min and max number of planets to remove. Used as a clamp on the
+    /// remove_planets_distribution.  Defaults to [0, 20]. Max is inclusive.
+    #[serde(default = "MutationParameters::default_remove_planets_limits")]
+    pub remove_planets_limits: Range<usize>,
+
+    /// Distribution over the number of new planets to remove. If using a uniform distribution, the
+    /// range is inclusive. Exponential distribution rounds down, normal distribution rounds to
+    /// nearest.
+    /// The default value is an exponential distribution with lambda chosen to have a 99.9% chance
+    /// of removing fewer than 10 planets.
+    #[serde(default = "MutationParameters::default_remove_planets_dist")]
+    pub remove_planets_dist: Distribution,
+
+    /// Percentage of planets to change, on average.
+    #[serde(default = "MutationParameters::default_fraction_of_planets_to_change")]
+    pub fraction_of_planets_to_change: f64,
+
+    /// Parameters for how to mutate individual planets.
+    #[serde(default)]
+    pub planet_mutation_parameters: PlanetMutationParameters,
+}
+
+impl MutationParameters {
+    fn default_add_planets_limits() -> Range<usize> {
+        Range {
+            min: 0,
+            max: 20,
+        }
+    }
+
+    fn default_add_planets_dist() -> Distribution {
+        // -ln(1 - .999) / 10 = 99.9% chance of adding fewer than 10 planets.
+        Distribution::Exponential(ExponentialDistribution(0.6907755278982136))
+    }
+
+    fn default_remove_planets_limits() -> Range<usize> {
+        Range {
+            min: 0,
+            max: 20,
+        }
+    }
+
+    fn default_remove_planets_dist() -> Distribution {
+        // -ln(1 - .999) / 10 = 99.9% chance of removing fewer than 10 planets.
+        Distribution::Exponential(ExponentialDistribution(0.6907755278982136))
+    }
+
+    fn default_fraction_of_planets_to_change() -> f64 { 0.10 }
 }
 
 impl Default for MutationParameters {
     fn default() -> Self {
         MutationParameters {
+            add_planets_limits: Self::default_add_planets_limits(),
+            add_planets_dist: Self::default_add_planets_dist(),
             new_planet_parameters: Default::default(),
+            remove_planets_limits: Self::default_remove_planets_limits(),
+            remove_planets_dist: Self::default_remove_planets_dist(),
+            fraction_of_planets_to_change: Self::default_fraction_of_planets_to_change(),
+            planet_mutation_parameters: Default::default(),
         }
     }
 }
@@ -80,7 +148,8 @@ pub struct NewWorldParameters {
     #[serde(default = "NewWorldParameters::default_num_planets_range")]
     pub num_planets_range: Range<usize>,
     /// Distribution used for selecting the number of planets to distribute over. If using a
-    /// uniform distribution, the range is inclusive.
+    /// uniform distribution, the range is inclusive. Exponential distribution rounds down, normal
+    /// distribution rounds to nearest.
     /// The default value is an exponential distribution with lambda chosen to have a 99.999%
     /// chance of picking fewer than 1000 planets.
     #[serde(default = "NewWorldParameters::default_num_planets_dist")]
@@ -172,6 +241,78 @@ impl Default for NewPlanetParameters {
             start_velocity: Self::default_start_velocity(),
             min_start_mass: Self::default_min_start_mass(),
             start_mass: Self::default_start_mass(),
+        }
+    }
+}
+
+/// Parameters to control how planets are mutated.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PlanetMutationParameters {
+    /// Distribution for how much to change position when modifying the planet. Defaults to a mean
+    /// of 0 and a standard deviation of 10 in both x and y.
+    #[serde(default = "PlanetMutationParameters::default_position_change")]
+    pub position_change: SerVec<NormalDistribution>,
+
+    /// Distribution for how much to change velocity when modifying the planet. Defaults to a mean
+    /// of 0 and a standard deviation of 10 in both x and y.
+    #[serde(default = "PlanetMutationParameters::default_velocity_change")]
+    pub velocity_change: SerVec<NormalDistribution>,
+
+    /// Distribution for how much to change mass when modifying the planet. Defaults to a normal
+    /// distribution with a mean of 0 and a standard deviation of 100.
+    #[serde(default = "PlanetMutationParameters::default_mass_change")]
+    pub mass_change: Distribution,
+
+    /// Min mass that the planet must have, used to clamp the results of the mass change must be
+    /// positive. Default is 1.
+    #[serde(default = "PlanetMutationParameters::default_min_mass")]
+    pub min_mass: f32,
+}
+
+impl PlanetMutationParameters {
+    fn default_position_change() -> SerVec<NormalDistribution> {
+        SerVec {
+            x: NormalDistribution {
+                mean: 0.,
+                standard_deviation: 10.,
+            },
+            y: NormalDistribution {
+                mean: 0.,
+                standard_deviation: 10.,
+            },
+        }
+    }
+
+    fn default_velocity_change() -> SerVec<NormalDistribution> {
+        SerVec {
+            x: NormalDistribution {
+                mean: 0.,
+                standard_deviation: 10.,
+            },
+            y: NormalDistribution {
+                mean: 0.,
+                standard_deviation: 10.,
+            },
+        }
+    }
+
+    fn default_mass_change() -> Distribution {
+        Distribution::Normal(NormalDistribution {
+            mean: 0.,
+            standard_deviation: 100.,
+        })
+    }
+
+    fn default_min_mass() -> f32 { 1. }
+}
+
+impl Default for PlanetMutationParameters {
+    fn default() -> Self {
+        PlanetMutationParameters {
+            position_change: Self::default_position_change(),
+            velocity_change: Self::default_velocity_change(),
+            mass_change: Self::default_mass_change(),
+            min_mass: Self::default_min_mass(),
         }
     }
 }

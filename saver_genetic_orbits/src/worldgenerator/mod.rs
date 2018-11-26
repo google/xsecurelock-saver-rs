@@ -68,6 +68,7 @@ use config::{
         MutationParameters,
         NewPlanetParameters,
         NewWorldParameters,
+        PlanetMutationParameters,
     },
     util::{
         Distribution as ConfDist,
@@ -251,24 +252,30 @@ impl<T, R: Rng> WorldGenerator<T, R> {
     
     /// Mutate the given parent world to generate a new random world.
     fn generate_child_world(&mut self, parent: &World, params: &MutationParameters) -> World {
-        const MAX_PLANETS_TO_ADD: usize = 20;
-        // -ln(1 - .999) / 10 = 99.9% chance of adding fewer than 10 planets.
-        const ADD_PLANETS_LAMBDA: f64 = 0.6907755278982136;
-        let add_planets_dist = Exp::new(ADD_PLANETS_LAMBDA);
-        let num_planets_to_add = add_planets_dist.sample(&mut self.rng) as usize;
-        let num_planets_to_add = MAX_PLANETS_TO_ADD.min(num_planets_to_add);
+        let num_planets_to_add = match params.add_planets_dist {
+            ConfDist::Exponential(ExponentialDistribution(lambda)) => 
+                Exp::new(lambda).sample(&mut self.rng) as usize,
+            ConfDist::Normal(NormalDistribution{mean, standard_deviation}) => 
+                Normal::new(mean, standard_deviation).sample(&mut self.rng).round() as usize,
+            ConfDist::Uniform(UniformDistribution{min, max}) => 
+                Uniform::new_inclusive(min as usize, max as usize).sample(&mut self.rng),
+        };
+        let num_planets_to_add = params.add_planets_limits
+            .clamp_inclusive(num_planets_to_add);
 
-        const MAX_PLANETS_TO_REMOVE: usize = 20;
-        // -ln(1 - .999) / 10 = 99.9% chance of removing fewer than 10 planets.
-        const REMOVE_PLANETS_LAMBDA: f64 = 0.6907755278982136;
-        let remove_planets_dist = Exp::new(REMOVE_PLANETS_LAMBDA);
-        let num_planets_to_remove = remove_planets_dist.sample(&mut self.rng) as usize;
-        let num_planets_to_remove = MAX_PLANETS_TO_REMOVE.min(num_planets_to_remove);
+        let num_planets_to_remove = match params.remove_planets_dist {
+            ConfDist::Exponential(ExponentialDistribution(lambda)) => 
+                Exp::new(lambda).sample(&mut self.rng) as usize,
+            ConfDist::Normal(NormalDistribution{mean, standard_deviation}) => 
+                Normal::new(mean, standard_deviation).sample(&mut self.rng).round() as usize,
+            ConfDist::Uniform(UniformDistribution{min, max}) => 
+                Uniform::new_inclusive(min as usize, max as usize).sample(&mut self.rng),
+        };
+        let num_planets_to_remove = params.remove_planets_limits
+            .clamp_inclusive(num_planets_to_remove);
         let num_planets_to_remove = parent.planets.len().min(num_planets_to_remove);
 
-        // Change about 10% of planets.
-        const FRACTION_OF_PLANETS_TO_CHANGE: f64 = 0.10;
-        let change_planet_dist = Bernoulli::new(FRACTION_OF_PLANETS_TO_CHANGE);
+        let change_planet_dist = Bernoulli::new(params.fraction_of_planets_to_change);
 
         // Order of changes is remove, modify, add. This is so we don't remove or modify newly
         // added planets and don't modify planets that are about to be removed.
@@ -286,7 +293,7 @@ impl<T, R: Rng> WorldGenerator<T, R> {
         // Modify
         for planet in world.planets.iter_mut() {
             if change_planet_dist.sample(&mut self.rng) {
-                self.mutate_planet(planet);
+                self.mutate_planet(planet, &params.planet_mutation_parameters);
             }
         }
 
@@ -340,32 +347,36 @@ impl<T, R: Rng> WorldGenerator<T, R> {
     }
 
     /// Mutates a planet by making small changes to the mass, position, and velocity.
-    fn mutate_planet(&mut self, planet: &mut Planet) {
-        const H_POS_CHANGE_MEAN: f64 = 0.;
-        const H_POS_CHANGE_STDEV: f64 = 10.;
-        let h_pos_change_dist = Normal::new(H_POS_CHANGE_MEAN, H_POS_CHANGE_STDEV);
-        const V_POS_CHANGE_MEAN: f64 = 0.;
-        const V_POS_CHANGE_STDEV: f64 = 10.;
-        let v_pos_change_dist = Normal::new(V_POS_CHANGE_MEAN, V_POS_CHANGE_STDEV);
+    fn mutate_planet(&mut self, planet: &mut Planet, params: &PlanetMutationParameters) {
+        let h_pos_change = Normal::new(
+            params.position_change.x.mean, params.position_change.x.standard_deviation,
+        ).sample(&mut self.rng) as f32;
+        let v_pos_change = Normal::new(
+            params.position_change.y.mean, params.position_change.y.standard_deviation,
+        ).sample(&mut self.rng) as f32;
         
-        const H_VEL_CHANGE_MEAN: f64 = 0.;
-        const H_VEL_CHANGE_STDEV: f64 = 10.;
-        let h_vel_change_dist = Normal::new(H_VEL_CHANGE_MEAN, H_VEL_CHANGE_STDEV);
-        const V_VEL_CHANGE_MEAN: f64 = 0.;
-        const V_VEL_CHANGE_STDEV: f64 = 10.;
-        let v_vel_change_dist = Normal::new(V_VEL_CHANGE_MEAN, V_VEL_CHANGE_STDEV);
+        let h_vel_change = Normal::new(
+            params.velocity_change.x.mean, params.velocity_change.x.standard_deviation,
+        ).sample(&mut self.rng) as f32;
+        let v_vel_change = Normal::new(
+            params.velocity_change.y.mean, params.velocity_change.y.standard_deviation,
+        ).sample(&mut self.rng) as f32;
 
-        const MASS_CHANGE_MEAN: f64 = 0.;
-        const MASS_CHANGE_STDEV: f64 = 100.;
-        const MIN_MASS: f32 = 1.;
-        let mass_change_dist = Normal::new(MASS_CHANGE_MEAN, MASS_CHANGE_STDEV);
+        let mass_change = match params.mass_change {
+            ConfDist::Exponential(ExponentialDistribution(lambda)) => 
+                Exp::new(lambda).sample(&mut self.rng),
+            ConfDist::Normal(NormalDistribution{mean, standard_deviation}) => 
+                Normal::new(mean, standard_deviation).sample(&mut self.rng),
+            ConfDist::Uniform(UniformDistribution{min, max}) => 
+                Uniform::new_inclusive(min, max).sample(&mut self.rng),
+        } as f32;
 
-        planet.position.x += h_pos_change_dist.sample(&mut self.rng) as f32;
-        planet.position.y += v_pos_change_dist.sample(&mut self.rng) as f32;
-        planet.velocity.x += h_vel_change_dist.sample(&mut self.rng) as f32;
-        planet.velocity.y += v_vel_change_dist.sample(&mut self.rng) as f32;
-        planet.mass += mass_change_dist.sample(&mut self.rng) as f32;
-        planet.mass = MIN_MASS.max(planet.mass);
+        planet.position.x += h_pos_change;
+        planet.position.y += v_pos_change;
+        planet.velocity.x += h_vel_change;
+        planet.velocity.y += v_vel_change;
+        planet.mass += mass_change;
+        planet.mass = params.min_mass.max(planet.mass);
     }
 
     /// Generates a random color, usually fairly bright.
