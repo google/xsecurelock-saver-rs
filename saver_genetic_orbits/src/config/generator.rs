@@ -15,13 +15,17 @@
 //! Contains configuration structs for the world generator.
 
 use xsecurelock_saver::engine::components::physics::Vector;
-use config::util::{
-    Distribution,
-    ExponentialDistribution,
-    NormalDistribution,
-    Range,
-    UniformDistribution,
-    Vector as SerVec,
+use config::{
+    util::{
+        Distribution,
+        ExponentialDistribution,
+        NormalDistribution,
+        Range,
+        UniformDistribution,
+        Vector as SerVec,
+    },
+    Validation,
+    fix_invalid_helper,
 };
 
 /// Tuning parameters for the world generator/mutator.
@@ -54,6 +58,22 @@ impl Default for GeneratorConfig {
             mutation_parameters: Default::default(),
             new_world_parameters: Default::default(),
         }
+    }
+}
+
+impl Validation for GeneratorConfig {
+    fn fix_invalid(&mut self, path: &str) {
+        fix_invalid_helper(
+            path, "create_new_scenario_probability", "must be in range (0, 1) (exclusive)",
+            &mut self.create_new_scenario_probability,
+            |&v| v > 0. && v < 1., 
+            Self::default_create_new_scenario_probability,
+        );
+        // join precomputes the total length, which guarantees exactly 1 allocation, whereas
+        // path.to_string() + ".xyz" creates a string with exactly path.len() capactiy then
+        // reallocates to extend it.
+        self.mutation_parameters.fix_invalid(&[path, "mutation_parameters"].join("."));
+        self.new_world_parameters.fix_invalid(&[path, "new_world_parameters"].join("."));
     }
 }
 
@@ -141,6 +161,35 @@ impl Default for MutationParameters {
     }
 }
     
+impl Validation for MutationParameters {
+    fn fix_invalid(&mut self, path: &str) {
+        fix_invalid_helper(
+            path, "add_planets_limits", "must have min >= 0 and max >= min",
+            &mut self.add_planets_limits,
+            |v| v.max >= v.min,
+            Self::default_add_planets_limits,
+        );
+        self.add_planets_dist.fix_invalid_helper_iu(
+            path, "add_planets_dist", Self::default_add_planets_dist);
+        self.new_planet_parameters.fix_invalid(&[path, "new_planet_parameters"].join("."));
+        fix_invalid_helper(
+            path, "remove_planets_limits", "must have min >= 0 and max >= min",
+            &mut self.remove_planets_limits,
+            |v| v.max >= v.min,
+            Self::default_remove_planets_limits,
+        );
+        self.remove_planets_dist.fix_invalid_helper_iu(
+            path, "remove_planets_dist", Self::default_remove_planets_dist);
+        fix_invalid_helper(
+            path, "fraction_of_planets_to_change", "must be in range [0, 1] (inclusive)",
+            &mut self.fraction_of_planets_to_change, |&v| v >= 0. && v <= 1.,
+            Self::default_fraction_of_planets_to_change,
+        );
+        self.planet_mutation_parameters
+            .fix_invalid(&[path, "planet_mutation_parameters"].join("."));
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewWorldParameters {
     /// Inclusive range over the number of planets that should be generated. Used to cap
@@ -177,7 +226,19 @@ impl Default for NewWorldParameters {
     }
 }
 
-
+impl Validation for NewWorldParameters {
+    fn fix_invalid(&mut self, path: &str) {
+        fix_invalid_helper(
+            path, "num_planets_range", "must have min >= 0 and max >= min",
+            &mut self.num_planets_range,
+            |v| v.max >= v.min,
+            Self::default_num_planets_range,
+        );
+        self.num_planets_dist.fix_invalid_helper_iu(
+            path, "num_planets_dist", Self::default_num_planets_dist);
+        self.planet_parameters.fix_invalid(&[path, "planet_paramters"].join("."));
+    }
+}
 
 /// Parameters to control how new planets are generated.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -242,6 +303,35 @@ impl Default for NewPlanetParameters {
             min_start_mass: Self::default_min_start_mass(),
             start_mass: Self::default_start_mass(),
         }
+    }
+}
+
+impl Validation for NewPlanetParameters {
+    fn fix_invalid(&mut self, path: &str) {
+        fix_invalid_helper(
+            path, "start_position", "must have min.x <= max.x and min.y <= max.y",
+            &mut self.start_position,
+            |v| v.min.x <= v.max.x && v.min.y <= v.max.y,
+            Self::default_start_position,
+        );
+        fix_invalid_helper(
+            path, "start_velocity", "must have standard_deviation >= 0 in both x and y",
+            &mut self.start_velocity,
+            |v| v.x.standard_deviation >= 0. && v.y.standard_deviation >= 0.,
+            Self::default_start_velocity,
+        );
+        fix_invalid_helper(
+            path, "min_start_mass", "must be > 0",
+            &mut self.min_start_mass,
+            |&v| v > 0.,
+            Self::default_min_start_mass,
+        );
+        fix_invalid_helper(
+            path, "start_mass", "must have standard_deviation >= 0",
+            &mut self.start_mass,
+            |v| v.standard_deviation >= 0.,
+            Self::default_start_mass,
+        );
     }
 }
 
@@ -316,3 +406,37 @@ impl Default for PlanetMutationParameters {
         }
     }
 }
+
+impl Validation for PlanetMutationParameters {
+    fn fix_invalid(&mut self, path: &str) {
+        fix_invalid_helper(
+            path, "position_change", "must have standard_deviation >= 0 in both x and y",
+            &mut self.position_change,
+            |v| v.x.standard_deviation >= 0. && v.y.standard_deviation >= 0.,
+            Self::default_position_change,
+        );
+        fix_invalid_helper(
+            path, "velocity_change", "must have standard_deviation >= 0 in both x and y",
+            &mut self.velocity_change,
+            |v| v.x.standard_deviation >= 0. && v.y.standard_deviation >= 0.,
+            Self::default_velocity_change,
+        );
+        fix_invalid_helper(
+            path, "mass_change", "must not use the exponential distribution",
+            &mut self.mass_change,
+            |v| match v {
+                &Distribution::Exponential(_) => false,
+                _ => true,
+            },
+            Self::default_mass_change,
+        );
+        self.mass_change.fix_invalid_helper_iu(path, "mass_change", Self::default_mass_change);
+        fix_invalid_helper(
+            path, "min_mass", "must be > 0",
+            &mut self.min_mass,
+            |&v| v > 0.,
+            Self::default_min_mass,
+        );
+    }
+}
+

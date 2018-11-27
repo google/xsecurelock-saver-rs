@@ -14,6 +14,8 @@
 
 //! Contains configuration structs for the scoring system.
 
+use config::{Validation, fix_invalid_helper};
+
 /// Tuning parameters for world scoring.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ScoringConfig {
@@ -38,6 +40,18 @@ impl Default for ScoringConfig {
             scored_ticks: Self::default_scored_ticks(),
             scored_area: Default::default(),
         }
+    }
+}
+
+impl Validation for ScoringConfig {
+    fn fix_invalid(&mut self, path: &str) {
+        fix_invalid_helper(
+            path, "scored_ticks", "must be > 0",
+            &mut self.scored_ticks,
+            |&v| v > 0,
+            Self::default_scored_ticks,
+        );
+        self.scored_area.fix_invalid(&[path, "scored_area"].join("."));
     }
 }
 
@@ -79,5 +93,23 @@ impl Default for ScoredArea {
             height: Self::default_scored_height(),
             scale_width_by_aspect: Default::default(),
         }
+    }
+}
+
+impl Validation for ScoredArea {
+    fn fix_invalid(&mut self, path: &str) {
+        fix_invalid_helper(
+            path, "width", "must be >= 0",
+            &mut self.width,
+            |&v| v >= 0.,
+            Self::default_scored_width,
+        );
+        fix_invalid_helper(
+            path, "height", "must be >= 0",
+            &mut self.height,
+            |&v| v >= 0.,
+            Self::default_scored_height,
+        );
+        // no validation for scale_width_by_aspect
     }
 }

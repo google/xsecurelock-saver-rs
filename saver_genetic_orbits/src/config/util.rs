@@ -59,6 +59,25 @@ pub enum Distribution {
     Uniform(UniformDistribution<f64>),
 }
 
+impl Distribution {
+    /// Fix invalid to the given default, assuming inclusive uniform.
+    pub fn fix_invalid_helper_iu(&mut self, path: &str, name: &str, default: fn() -> Self) {
+        ::config::fix_invalid_helper(
+            path, name,
+            "Exponential must have lambda > 0, Normal must have standard_deviation >= 0, \
+            or Uniform must have max >= min",
+            self,
+            |v| match v {
+                Distribution::Exponential(ExponentialDistribution(lambda)) => *lambda > 0.,
+                Distribution::Normal(NormalDistribution { standard_deviation, .. }) =>
+                    *standard_deviation >= 0.,
+                Distribution::Uniform(UniformDistribution { min, max }) => max >= min,
+            },
+            default,
+        );
+    }
+}
+
 /// A distribution that is required to be exponential. Serializable rand::distributions::Exp.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExponentialDistribution(pub f64);

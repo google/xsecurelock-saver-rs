@@ -154,8 +154,11 @@ fn open_default_storage() -> SqliteStorage {
 fn get_config() -> GeneticOrbitsConfig {
     match find_config_file() {
         Some(config_file) => {
-            match serde_yaml::from_reader(config_file) {
-                Ok(config) => config,
+            match serde_yaml::from_reader::<_, GeneticOrbitsConfig>(config_file) {
+                Ok(mut config) => {
+                    config.fix_invalid();
+                    config
+                },
                 Err(err) => {
                     println!("Error loading config: {}", err);
                     Default::default()

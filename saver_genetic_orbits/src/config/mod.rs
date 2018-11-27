@@ -23,6 +23,29 @@ pub mod generator;
 pub mod scoring;
 pub mod util;
 
+/// Internal trait for config validation.
+trait Validation {
+    /// Log a warning about invalid configs and replace them with default values. path is used to
+    /// provide an exact path to each invalid item.
+    fn fix_invalid(&mut self, path: &str);
+}
+
+fn fix_invalid_helper<T, F>(
+    path: &str, name: &str, requirement_desc: &str, 
+    source: &mut T, check_valid: F, default: fn() -> T,
+) where 
+    T: ::std::fmt::Debug,
+    F: FnOnce(&T) -> bool
+{
+    if !check_valid(source) {
+        let old = ::std::mem::replace(source, default());
+        println!(
+            "{}.{} {}, but was {:?}; reset to default of {:?}.",
+            path, name, requirement_desc, old, source,
+        );
+    }
+}
+
 /// Global configuration for the Genetic Orbits screensaver.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct GeneticOrbitsConfig {
@@ -37,4 +60,13 @@ pub struct GeneticOrbitsConfig {
     /// Parameters affecting scoring.
     #[serde(default)]
     pub scoring: ScoringConfig,
+}
+
+impl GeneticOrbitsConfig {
+    /// Log a warning about invalid configs and replace them with default values. 
+    pub fn fix_invalid(&mut self) {
+        // database has no validation.
+        self.generator.fix_invalid("generator");
+        self.scoring.fix_invalid("scoring");
+    }
 }
