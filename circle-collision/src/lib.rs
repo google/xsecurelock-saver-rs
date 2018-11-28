@@ -151,9 +151,6 @@ impl<'a> System<'a> for BruteForceCollisionDetector {
         let pdt = physics_delta.0.as_seconds();
         collisions.0.clear();
         for (e1, c1, p1, _) in (&*entities, &colliders, &positions, !&deleted).join() {
-            if !entities.is_alive(e1) {
-                println!("BFCD Ent {:?} is dead", e1);
-            }
             let v1 = velocities.get(e1).map_or(Vector::new(0., 0.), |v| v.linear);
             for (e2, c2, p2, _) in (&*entities, &colliders, &positions, !&deleted).join() {
                 // Enforce ordering to ensure we only generate one collision per pair. We would

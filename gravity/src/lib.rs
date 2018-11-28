@@ -88,15 +88,9 @@ impl<'a> System<'a> for GravitySystem {
 
         for (ent, pos, _, _, acc)
             in (&*entities, &positions, &targets, !&deleted, &mut forces).join() {
-            if !entities.is_alive(ent) {
-                println!("Grav Ent {:?} is dead", ent);
-            }
             let mass = masses.get(ent).cloned().unwrap_or_default().linear;
             for (source_ent, source_pos, _, _) 
                 in (&*entities, &positions, &sources, !&deleted).join() {
-                if !entities.is_alive(source_ent) {
-                    println!("Grav Ent {:?} is dead", ent);
-                }
                 if ent == source_ent { continue; }
                 let source_mass = masses.get(source_ent).cloned().unwrap_or_default().linear;
                 let force_dir = source_pos.pos() - pos.pos();
