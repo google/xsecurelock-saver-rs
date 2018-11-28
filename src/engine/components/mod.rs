@@ -14,11 +14,13 @@
 
 use specs::World;
 
+pub mod delete;
 pub mod draw;
 pub mod physics;
 pub mod scene;
 
 pub(crate) fn register_all(world: &mut World) {
+    delete::register_all(world);
     draw::register_all(world);
     physics::register_all(world);
     scene::register_all(world);

@@ -29,6 +29,7 @@ use specs::{
 
 use xsecurelock_saver::engine::{
     components::{
+        delete::Deleted,
         draw::{
             DrawColor,
             DrawShape,
@@ -219,11 +220,12 @@ impl<'a> System<'a> for DeleteCollidedPlanets {
     type SystemData = (
         Entities<'a>,
         ReadStorage<'a, MergedInto>,
+        WriteStorage<'a, Deleted>,
     );
 
-    fn run(&mut self, (entities, successors): Self::SystemData) {
+    fn run(&mut self, (entities, successors, mut deleted): Self::SystemData) {
         for (ent, _) in (&*entities, &successors).join() {
-            entities.delete(ent).unwrap();
+            deleted.insert(ent, Deleted).unwrap();
         }
     }
 }

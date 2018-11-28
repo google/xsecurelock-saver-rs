@@ -24,9 +24,12 @@ use specs::{
 };
 
 use xsecurelock_saver::engine::{
-    components::physics::{
-        Mass,
-        Position,
+    components::{
+        delete::Deleted,
+        physics::{
+            Mass,
+            Position,
+        },
     },
     resources::{
         draw::View,
@@ -74,6 +77,7 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
         Write<'a, SceneChange>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, Mass>,
+        ReadStorage<'a, Deleted>,
     );
 
     fn run(
@@ -86,6 +90,7 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
             mut scene_change,
             positions,
             masses,
+            deleted,
         ): Self::SystemData,
     ) {
         if world_track.ticks_completed < scoring.scored_ticks {
@@ -100,7 +105,7 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
 
             let mut mass_count = 0f64;
             let mut total_mass = 0f64;
-            for (position, mass) in (&positions, &masses).join() {
+            for (position, mass, _) in (&positions, &masses, !&deleted).join() {
                 let pos = position.pos();
                 if pos.x.abs() <= horizontal_half_extent && pos.y.abs() <= vertical_half_extent {
                     mass_count += 1.;
