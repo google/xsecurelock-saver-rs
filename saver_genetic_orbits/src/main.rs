@@ -104,7 +104,13 @@ fn main() {
         .with_component::<GravityTarget>()
         .with_component::<MergedInto>()
         .with_scene_change_sys(ClearCollisionsInvolvingSceneEntities, "", &[])
-        // Run scorekeeping during the first stage of physics updates.
+        // Run the real merge just before scoring.
+        .with_physics_update_sys(
+            MergeCollidedPlanets, "merge-collided", &[])
+        .with_physics_update_sys(
+            DeleteCollidedPlanets, "delete-collided", &["merge-collided"])
+        .with_physics_update_barrier()
+        // Run scorekeeping before integrating.
         .with_physics_update_sys(ScoreKeeper::<SqliteStorage>::default(), "score-keeper", &[])
         .with_physics_update_sys(GravitySystem, "apply-gravity", &[])
         // Barrier between adding forces and adding integration.
@@ -113,14 +119,7 @@ fn main() {
         .with_physics_update_sys(
             BruteForceCollisionDetector, "detect-collisions", &["integrate-forces"])
         .with_physics_update_sys(
-            MergeCollidedPlanets, "merge-collided", &["detect-collisions"])
-        .with_physics_update_sys(
-            DeleteCollidedPlanets, "delete-collided", &["merge-collided"])
-        .with_physics_update_sys(
-            SympleticEulerVelocityStep,
-            "integrate-velocities",
-            &["integrate-forces", "detect-collisions", "merge-collided"],
-        )
+            SympleticEulerVelocityStep, "integrate-velocities", &["detect-collisions"])
         .build()
         .run();
 }
