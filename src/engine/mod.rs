@@ -71,6 +71,7 @@ pub mod systems;
 pub struct EngineBuilder<'a, 'b> {
     world: ::specs::World,
     update_dispatcher: ::specs::DispatcherBuilder<'a, 'b>,
+    scene_change_dispatcher: ::specs::DispatcherBuilder<'a, 'b>,
     physics_update_dispatcher: ::specs::DispatcherBuilder<'a, 'b>,
     max_physics_updates: usize
 }
@@ -86,6 +87,8 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
                 world
             },
             update_dispatcher: ::specs::DispatcherBuilder::new()
+                .with_pool(Arc::clone(&thread_pool)),
+            scene_change_dispatcher: ::specs::DispatcherBuilder::new()
                 .with_pool(Arc::clone(&thread_pool)),
             physics_update_dispatcher: ::specs::DispatcherBuilder::new()
                 .with_pool(thread_pool)
@@ -118,6 +121,33 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
 
     /// Add a barrier to the update system.
     pub fn add_update_barrier(&mut self) { self.update_dispatcher.add_barrier(); }
+
+    /// Add a system to run on scene_changes. Arguments are the same as for
+    /// `DispatcherBuilder.with`.  Dependencies can only refer to other scene_change systems added
+    /// previously. This system will be run only when a scene change has been scheduled and can be
+    /// used to clean up and reset resources or entities for the new scene.
+    pub fn with_scene_change_sys<S>(mut self, sys: S, name: &str, dep: &[&str]) -> Self 
+        where S: for<'c> System<'c> + Send + 'a
+    {
+        self.add_scene_change_sys(sys, name, dep);
+        self
+    }
+
+    /// Add a system to run on scene_changes. Arguments are the same as for
+    /// `DispatcherBuilder.with`.  Dependencies can only refer to other scene_change systems added
+    /// previously. This system will be run only when a scene change has been scheduled and can be
+    /// used to clean up and reset resources or entities for the new scene.
+    pub fn add_scene_change_sys<S>(&mut self, sys: S, name: &str, dep: &[&str]) 
+        where S: for<'c> System<'c> + Send + 'a
+    {
+        self.scene_change_dispatcher.add(sys, name, dep);
+    }
+
+    /// Add a barrier to the scene_change system.
+    pub fn with_scene_change_barrier(mut self) -> Self { self.add_scene_change_barrier(); self }
+
+    /// Add a barrier to the scene_change system.
+    pub fn add_scene_change_barrier(&mut self) { self.scene_change_dispatcher.add_barrier(); }
 
     /// Add a system to run on physics updates. Arguments are the same as for 
     /// `DispatcherBuilder.with`. Dependencies can only refer to other physics update systems 
@@ -185,10 +215,13 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
     pub fn build<'tex>(self) -> Engine<'a, 'b, 'tex> {
         let mut engine = Engine {
             world: self.world,
-            clear_current_scene: ClearCurrentScene,
             update_dispatcher: self.update_dispatcher
                 .with_barrier()
                 .with(DrawLayersUpdater::default(), "", &[])
+                .build(),
+            scene_change_dispatcher: self.scene_change_dispatcher
+                .with_barrier()
+                .with(ClearCurrentScene, "", &[])
                 .build(),
             physics_update_dispatcher: self.physics_update_dispatcher.build(),
 
@@ -213,9 +246,8 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
             view.copy_to(&mut engine.view);
         }
 
-        engine.clear_current_scene.setup(&mut engine.world.res);
-
         engine.update_dispatcher.setup(&mut engine.world.res);
+        engine.scene_change_dispatcher.setup(&mut engine.world.res);
         engine.physics_update_dispatcher.setup(&mut engine.world.res);
 
         engine.sync_draw_shapes.setup_special(&mut engine.draw_shapes, &mut engine.world.res);
@@ -229,8 +261,8 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
 /// A Game-Engine like Screensaver implementation.
 pub struct Engine<'a, 'b, 'tex> {
     world: ::specs::World,
-    clear_current_scene: ClearCurrentScene,
     update_dispatcher: ::specs::Dispatcher<'a, 'b>,
+    scene_change_dispatcher: ::specs::Dispatcher<'a, 'b>,
     physics_update_dispatcher: ::specs::Dispatcher<'a, 'b>,
 
     window: RenderWindow,
@@ -320,15 +352,13 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
 
     /// Run the scene changer if set.
     fn handle_scene_change(&mut self) {
-        // Change scene as a separate step so that the maintain call is independent and spawns from
-        // the last regular update are still captured.
-        {
-            use specs::RunNow;
-            self.clear_current_scene.run_now(&self.world.res);
-        }
         let loader = self.world.write_resource::<SceneChange>().take_scene_changer();
         if let Some(mut loader) = loader {
-            // maintain for clear_current_scene (clear does nothing if scene change isn't set).
+            // Change scene as a separate step so that the maintain call is independent and spawns
+            // from the last regular update are still captured.
+            self.scene_change_dispatcher.dispatch(&self.world.res);
+
+            // maintain for scene_change_dispatcher.
             self.world.maintain();
 
             loader.dispatch(&mut self.world);
