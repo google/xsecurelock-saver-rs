@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub(crate) mod delete;
 pub mod draw;
 pub mod physics;
 pub mod scene;

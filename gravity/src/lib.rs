@@ -30,6 +30,7 @@ use specs::{
     WriteStorage,
 };
 
+use xsecurelock_saver::engine::components::delete::Deleted;
 use xsecurelock_saver::engine::components::physics::{
     ForceAccumulator,
     Position,
@@ -74,19 +75,28 @@ impl<'a> System<'a> for GravitySystem {
         ReadStorage<'a, Mass>,
         ReadStorage<'a, GravitySource>,
         ReadStorage<'a, GravityTarget>,
+        ReadStorage<'a, Deleted>,
         WriteStorage<'a, ForceAccumulator>,
     );
 
     fn run(
         &mut self,
-        (g, entities, positions, masses, sources, targets, mut forces): Self::SystemData,
+        (g, entities, positions, masses, sources, targets, deleted, mut forces): Self::SystemData,
     ) {
         #[cfg(feature = "debug-timing")]
         let start = Instant::now();
 
-        for (ent, pos, _, acc) in (&*entities, &positions, &targets, &mut forces).join() {
+        for (ent, pos, _, _, acc)
+            in (&*entities, &positions, &targets, !&deleted, &mut forces).join() {
+            if !entities.is_alive(ent) {
+                println!("Grav Ent {:?} is dead", ent);
+            }
             let mass = masses.get(ent).cloned().unwrap_or_default().linear;
-            for (source_ent, source_pos, _) in (&*entities, &positions, &sources).join() {
+            for (source_ent, source_pos, _, _) 
+                in (&*entities, &positions, &sources, !&deleted).join() {
+                if !entities.is_alive(source_ent) {
+                    println!("Grav Ent {:?} is dead", ent);
+                }
                 if ent == source_ent { continue; }
                 let source_mass = masses.get(source_ent).cloned().unwrap_or_default().linear;
                 let force_dir = source_pos.pos() - pos.pos();

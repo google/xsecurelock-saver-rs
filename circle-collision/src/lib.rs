@@ -32,6 +32,7 @@ use specs::{
     Write,
 };
 
+use xsecurelock_saver::engine::components::delete::Deleted;
 use xsecurelock_saver::engine::components::physics::{Position, Vector, Velocity};
 use xsecurelock_saver::engine::components::scene::InScene;
 use xsecurelock_saver::engine::resources::time::PhysicsDeltaTime;
@@ -125,6 +126,7 @@ impl<'a> System<'a> for BruteForceCollisionDetector {
         ReadStorage<'a, CircleCollider>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, Velocity>,
+        ReadStorage<'a, Deleted>,
         Read<'a, PhysicsDeltaTime>,
         Read<'a, CollisionMatrix>,
         Write<'a, LastUpdateCollisions>,
@@ -137,6 +139,7 @@ impl<'a> System<'a> for BruteForceCollisionDetector {
             colliders,
             positions,
             velocities,
+            deleted,
             physics_delta,
             layers,
             mut collisions,
@@ -147,9 +150,12 @@ impl<'a> System<'a> for BruteForceCollisionDetector {
 
         let pdt = physics_delta.0.as_seconds();
         collisions.0.clear();
-        for (e1, c1, p1) in (&*entities, &colliders, &positions).join() {
+        for (e1, c1, p1, _) in (&*entities, &colliders, &positions, !&deleted).join() {
+            if !entities.is_alive(e1) {
+                println!("BFCD Ent {:?} is dead", e1);
+            }
             let v1 = velocities.get(e1).map_or(Vector::new(0., 0.), |v| v.linear);
-            for (e2, c2, p2) in (&*entities, &colliders, &positions).join() {
+            for (e2, c2, p2, _) in (&*entities, &colliders, &positions, !&deleted).join() {
                 // Enforce ordering to ensure we only generate one collision per pair. We would
                 // normally improve efficiency by starting the inner loop from e1.id() + 1, but
                 // EntitiesRes doesn't seem to support that.

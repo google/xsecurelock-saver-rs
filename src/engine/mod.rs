@@ -45,6 +45,7 @@ use self::{
         },
     },
     systems::{
+        delete::DeleteSystem,
         draw::{
             DrawLayersUpdater,
             SyncDrawShapesSystem,
@@ -218,12 +219,17 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
             update_dispatcher: self.update_dispatcher
                 .with_barrier()
                 .with(DrawLayersUpdater::default(), "", &[])
+                .with(DeleteSystem, "", &[])
                 .build(),
             scene_change_dispatcher: self.scene_change_dispatcher
                 .with_barrier()
+                .with(DeleteSystem, "", &[])
                 .with(ClearCurrentScene, "", &[])
                 .build(),
-            physics_update_dispatcher: self.physics_update_dispatcher.build(),
+            physics_update_dispatcher: self.physics_update_dispatcher
+                .with_barrier()
+                .with(DeleteSystem, "", &[])
+                .build(),
 
             window: super::open_window(),
             view: SfView::new(Vector2f::new(0., 0.), Vector2f::new(1., 1.)),
