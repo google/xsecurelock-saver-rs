@@ -192,7 +192,7 @@ impl<'a> System<'a> for MergeCollidedPlanets {
             shapes.insert(e1, DrawShape {
                 shape_type: ShapeType::Circle {
                     radius,
-                    point_count: 16,
+                    point_count: ::worldgenerator::radius_to_point_count(radius),
                 },
                 origin: Vector2f::new(radius, radius),
             }).unwrap();

@@ -139,7 +139,7 @@ where T: Storage + Default + Send + Sync + 'static
                 .with(DrawShape {
                     shape_type: ShapeType::Circle {
                         radius,
-                        point_count: 16,
+                        point_count: radius_to_point_count(radius),
                     },
                     origin: Vector2f::new(radius, radius),
                 })
@@ -421,4 +421,11 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
         (255. * g).round() as u8,
         (255. * b).round() as u8,
     )
+}
+
+pub fn radius_to_point_count(radius: f32) -> u32 {
+    const MIN_SEGMENTS: u32 = 8;
+    const SEGMENT_LEN: f32 = 8.;
+    let circumfrence = 2. * ::std::f32::consts::PI * radius;
+    MIN_SEGMENTS.max((circumfrence / SEGMENT_LEN).ceil() as u32)
 }
