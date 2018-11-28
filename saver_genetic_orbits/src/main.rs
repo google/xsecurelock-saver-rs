@@ -43,6 +43,7 @@ use gravity::{
 };
 use circle_collision::{
     BruteForceCollisionDetector,
+    ClearCollisionsInvolvingSceneEntities,
     CircleCollider,
     CollisionMatrix,
     LastUpdateCollisions,
@@ -102,6 +103,7 @@ fn main() {
         .with_component::<GravitySource>()
         .with_component::<GravityTarget>()
         .with_component::<MergedInto>()
+        .with_scene_change_sys(ClearCollisionsInvolvingSceneEntities, "", &[])
         // Run scorekeeping during the first stage of physics updates.
         .with_physics_update_sys(ScoreKeeper::<SqliteStorage>::default(), "score-keeper", &[])
         .with_physics_update_sys(GravitySystem, "apply-gravity", &[])

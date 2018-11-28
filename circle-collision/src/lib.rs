@@ -33,6 +33,7 @@ use specs::{
 };
 
 use xsecurelock_saver::engine::components::physics::{Position, Vector, Velocity};
+use xsecurelock_saver::engine::components::scene::InScene;
 use xsecurelock_saver::engine::resources::time::PhysicsDeltaTime;
 
 /// A collision between two entities.
@@ -126,7 +127,7 @@ impl<'a> System<'a> for BruteForceCollisionDetector {
         ReadStorage<'a, Velocity>,
         Read<'a, PhysicsDeltaTime>,
         Read<'a, CollisionMatrix>,
-        Write<'a, LastUpdateCollisions>
+        Write<'a, LastUpdateCollisions>,
     );
 
     fn run(
@@ -181,5 +182,22 @@ impl<'a> System<'a> for BruteForceCollisionDetector {
             let elapsed = start.elapsed();
             println!("Calculating Collisions took: {}s, {}µs", elapsed.as_secs(), elapsed.subsec_micros());
         }
+    }
+}
+
+/// System that can be added to the scene change step to clear all collisions involving entities
+/// with InScene.
+pub struct ClearCollisionsInvolvingSceneEntities;
+impl<'a> System<'a> for ClearCollisionsInvolvingSceneEntities {
+    type SystemData = (
+        ReadStorage<'a, InScene>,
+        Write<'a, LastUpdateCollisions>,
+    );
+
+    fn run(&mut self, (scene_markers, mut collisions): Self::SystemData) {
+        collisions.0.retain(|collision| {
+            scene_markers.get(collision.0).is_none()
+                && scene_markers.get(collision.1).is_none()
+        });
     }
 }

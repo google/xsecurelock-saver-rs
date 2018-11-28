@@ -15,29 +15,22 @@
 use specs::{
     Entities,
     Join,
-    Read,
     ReadStorage,
     System,
 };
 
-use engine::{
-    components::scene::InScene,
-    resources::scene::SceneChange,
-};
+use engine::components::scene::InScene;
 
 pub struct ClearCurrentScene;
 impl<'a> System<'a> for ClearCurrentScene {
     type SystemData = (
         Entities<'a>,
         ReadStorage<'a, InScene>,
-        Read<'a, SceneChange>,
     );
 
-    fn run(&mut self, (entities, in_scene, scene_change): Self::SystemData) {
-        if scene_change.is_scene_change_scheduled() {
-            for (entity, _) in (&*entities, &in_scene).join() {
-                entities.delete(entity).unwrap();
-            }
+    fn run(&mut self, (entities, in_scene): Self::SystemData) {
+        for (entity, _) in (&*entities, &in_scene).join() {
+            entities.delete(entity).unwrap();
         }
     }
 }
