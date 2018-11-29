@@ -79,3 +79,144 @@ fn fold_eval<F>(
     let first = iter.next().unwrap().eval(tick, total_mass, mass_count);
     iter.fold(first, |acc, next| func(acc, next.eval(tick, total_mass, mass_count)))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use self::Expression::*;
+
+    const TICK: f64 = 9.;
+    const TOTAL_MASS: f64 = 486.8;
+    const MASS_COUNT: f64 = 77.;
+
+    fn assert_eval(expr: Expression, expected: f64) {
+        assert_eq!(expr.eval(TICK, TOTAL_MASS, MASS_COUNT), expected);
+    }
+
+    #[test]
+    fn eval_ticks() {
+        assert_eval(Tick, TICK);
+    }
+
+    #[test]
+    fn eval_total_mass() {
+        assert_eval(TotalMass, TOTAL_MASS);
+    }
+
+    #[test]
+    fn eval_mass_count() {
+        assert_eval(MassCount, MASS_COUNT);
+    }
+
+    #[test]
+    fn eval_constant() {
+        assert_eval(Constant(88.97), 88.97);
+    }
+
+    #[test]
+    fn eval_multiply() {
+        assert_eval(
+            Multiply(vec![Tick, Constant(2.), TotalMass]),
+            TICK * 2. * TOTAL_MASS,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn eval_multiply_too_few_items() {
+        Multiply(vec![Tick]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+    }
+
+    #[test]
+    fn eval_add() {
+        assert_eval(
+            Add(vec![Tick, Constant(2.), TotalMass]),
+            TICK + 2. + TOTAL_MASS,
+        );
+    }
+
+    #[test]
+    fn eval_unary_add() {
+        assert_eval(
+            Add(vec![Tick]),
+            TICK,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn eval_add_too_few_items() {
+        Add(vec![]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+    }
+
+    #[test]
+    fn eval_power() {
+        assert_eval(
+            Power(vec![Tick, Constant(2.), TotalMass]),
+            TICK.powf(2.).powf(TOTAL_MASS),
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn eval_power_too_few_items() {
+        Power(vec![Tick]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+    }
+
+    #[test]
+    fn eval_subtract() {
+        assert_eval(
+            Subtract(vec![Tick, Constant(2.), TotalMass]),
+            TICK - 2. - TOTAL_MASS,
+        );
+    }
+
+    #[test]
+    fn eval_unary_subtract() {
+        assert_eval(
+            Subtract(vec![Tick]),
+            -TICK,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn eval_subtract_too_few_items() {
+        Subtract(vec![]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+    }
+
+    #[test]
+    fn eval_divide() {
+        assert_eval(
+            Divide(vec![Tick, Constant(2.), TotalMass]),
+            TICK / 2. / TOTAL_MASS,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn eval_divide_too_few_items() {
+        Divide(vec![Tick]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+    }
+
+    #[test]
+    fn eval_complex() {
+        assert_eval(
+            Subtract(vec![
+                Multiply(vec![
+                    Tick,
+                    Constant(8.),
+                    Add(vec![
+                        Constant(1.),
+                        Power(vec![
+                            TotalMass,
+                            Constant(1.5),
+                            Power(vec![MassCount, Constant(1.24)]),
+                        ]),
+                    ]),
+                ]),
+            ]),
+            -(TICK * 8. * (1. + TOTAL_MASS.powf(1.5).powf(MASS_COUNT.powf(1.24))))
+        );
+    }
+}
