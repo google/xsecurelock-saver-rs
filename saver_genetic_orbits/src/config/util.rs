@@ -47,15 +47,13 @@ impl<T> Range<T> where T: PartialOrd + Clone {
 /// A random distribution. This enum is used in places where the configuration should have a choice
 /// of several different distribution types.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum Distribution {
     /// Use an exponential distribution.
-    #[serde(rename = "exponential")]
     Exponential(ExponentialDistribution),
     /// Use a normal distribution.
-    #[serde(rename = "normal")]
     Normal(NormalDistribution),
     /// Use a uniform distribution.
-    #[serde(rename = "uniform")]
     Uniform(UniformDistribution<f64>),
 }
 
