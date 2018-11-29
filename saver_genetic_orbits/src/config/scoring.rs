@@ -15,6 +15,7 @@
 //! Contains configuration structs for the scoring system.
 
 use config::{Validation, fix_invalid_helper};
+use statustracker::scoring_function::Expression;
 
 /// Tuning parameters for world scoring.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -26,6 +27,10 @@ pub struct ScoringConfig {
 
     /// The region where planets actually count towards the scenario score.
     pub scored_area: ScoredArea,
+
+    /// Expression that is evaluated each frame to determine the score for that frame, to be added
+    /// to the cumulative score. I'm sorry for using yaml lists as s-expressions.
+    pub per_frame_scoring_expression: Expression,
 }
 
 impl Default for ScoringConfig {
@@ -34,6 +39,9 @@ impl Default for ScoringConfig {
             // 1 minute (60,000 milliseconds) / 16 milliseconds per tick
             scored_ticks: 3750,
             scored_area: Default::default(),
+            per_frame_scoring_expression: Expression::Multiply(
+                vec![Expression::TotalMass, Expression::MassCount],
+            ),
         }
     }
 }
@@ -47,6 +55,7 @@ impl Validation for ScoringConfig {
             || Self::default().scored_ticks,
         );
         self.scored_area.fix_invalid(&[path, "scored_area"].join("."));
+        // no validation for per_frame_scoring.
     }
 }
 
