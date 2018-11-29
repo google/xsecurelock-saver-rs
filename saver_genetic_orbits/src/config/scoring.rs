@@ -18,26 +18,21 @@ use config::{Validation, fix_invalid_helper};
 
 /// Tuning parameters for world scoring.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct ScoringConfig {
     /// The number of physics ticks to count the score for. Physics ticks are defined to be 16
     /// milliseconds long. Defaults to 3750, which is approximately 60 seconds.
-    #[serde(default = "ScoringConfig::default_scored_ticks")]
     pub scored_ticks: u32,
 
     /// The region where planets actually count towards the scenario score.
-    #[serde(default)]
     pub scored_area: ScoredArea,
-}
-
-impl ScoringConfig {
-    /// 1 minute (60,000 milliseconds) / 16 milliseconds per tick
-    fn default_scored_ticks() -> u32 { 3750 }
 }
 
 impl Default for ScoringConfig {
     fn default() -> Self {
         ScoringConfig {
-            scored_ticks: Self::default_scored_ticks(),
+            // 1 minute (60,000 milliseconds) / 16 milliseconds per tick
+            scored_ticks: 3750,
             scored_area: Default::default(),
         }
     }
@@ -49,7 +44,7 @@ impl Validation for ScoringConfig {
             path, "scored_ticks", "must be > 0",
             &mut self.scored_ticks,
             |&v| v > 0,
-            Self::default_scored_ticks,
+            || Self::default().scored_ticks,
         );
         self.scored_area.fix_invalid(&[path, "scored_area"].join("."));
     }
@@ -68,29 +63,22 @@ impl Validation for ScoringConfig {
 /// width according to the aspect ratio of the monitor. With this on, if you want to exactly match
 /// the screen, you should set both height and width to 2000.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct ScoredArea {
     // TODO(zstewar1): use a Range<Vector> for the scored area.
     /// The width of the scored region. Defaults to 4000.
-    #[serde(default = "ScoredArea::default_scored_width")]
     pub width: f32,
     /// The height of the scored region. Defaults to 4000.
-    #[serde(default = "ScoredArea::default_scored_height")]
     pub height: f32,
     /// Whether to scale the width based on the aspect ratio. Defaults to false.
-    #[serde(default)]
     pub scale_width_by_aspect: bool,
-}
-
-impl ScoredArea {
-    fn default_scored_width() -> f32 { 4000. }
-    fn default_scored_height() -> f32 { 4000. }
 }
 
 impl Default for ScoredArea {
     fn default() -> Self {
         ScoredArea {
-            width: Self::default_scored_width(),
-            height: Self::default_scored_height(),
+            width: 4000.,
+            height: 4000.,
             scale_width_by_aspect: Default::default(),
         }
     }
@@ -102,13 +90,13 @@ impl Validation for ScoredArea {
             path, "width", "must be >= 0",
             &mut self.width,
             |&v| v >= 0.,
-            Self::default_scored_width,
+            || Self::default().width,
         );
         fix_invalid_helper(
             path, "height", "must be >= 0",
             &mut self.height,
             |&v| v >= 0.,
-            Self::default_scored_height,
+            || Self::default().height,
         );
         // no validation for scale_width_by_aspect
     }
