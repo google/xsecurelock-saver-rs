@@ -162,6 +162,7 @@ fn get_config() -> GeneticOrbitsConfig {
         Some(config_file) => {
             match serde_yaml::from_reader::<_, GeneticOrbitsConfig>(config_file) {
                 Ok(mut config) => {
+                    info!("Successfully loaded config");
                     config.fix_invalid();
                     config
                 },
@@ -171,7 +172,10 @@ fn get_config() -> GeneticOrbitsConfig {
                 },
             }
         },
-        None => Default::default(),
+        None => {
+            info!("No config file found, using default config");
+            Default::default()
+        },
     }
 }
 
@@ -199,12 +203,18 @@ fn find_config_file() -> Option<BufReader<File>> {
 }
 
 fn try_open_config_file<P: AsRef<Path>>(b: P) -> Option<File> {
-    File::open(b.as_ref())
+    let config_load = File::open(b.as_ref())
         .or_else(|err| if err.kind() == ErrorKind::NotFound {
             Err(())
         } else {
-            error!("unable to read config file {:?}: {}", b.as_ref(), err);
+            error!("Unable to read config file {:?}: {}", b.as_ref(), err);
             Err(())
-        })
-        .ok()
+        });
+    match config_load {
+        Err(()) => None,
+        Ok(config) => {
+            info!("Using config file {:?}", b.as_ref());
+            Some(config)
+        },
+    }
 }
