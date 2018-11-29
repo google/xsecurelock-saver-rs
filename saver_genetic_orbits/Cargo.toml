@@ -10,11 +10,13 @@ debug-timing = []
 circle-collision = { path = "../circle-collision" }
 dirs = "1.0"
 gravity = { path = "../gravity" }
+lalrpop-util = "0.16"
 log = "0.4"
 nalgebra = "0.15"
 num-complex = "0.2"
 num-traits = "0.2"
 rand = "0.5"
+regex = "1.0"
 rusqlite = "0.13"
 serde = "1.0"
 serde_derive = "1.0"
@@ -27,3 +29,6 @@ specs = "0.11"
 [dependencies.xsecurelock-saver]
 path = "../"
 features = ["engine", "serde-serialize"]
+
+[build-dependencies]
+lalrpop = "0.16"
