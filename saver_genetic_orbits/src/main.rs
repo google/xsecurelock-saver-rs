@@ -26,6 +26,7 @@ extern crate sfml;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_yaml;
+extern crate simple_logger;
 
 extern crate specs;
 extern crate circle_collision;
@@ -76,6 +77,8 @@ mod statustracker;
 mod worldgenerator;
 
 fn main() {
+    simple_logger::init().unwrap();
+
     let config = get_config();
     let storage = match &config.database.database_path {
         Some(path) => {
