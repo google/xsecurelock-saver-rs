@@ -14,9 +14,7 @@
 
 /// Expression for computing the per-frame score for a scene from that frame's total mass and total
 /// mass count and the tick count.
-// TODO(zstewar1): Find a better way to handle parsing. S-expressions as a yaml string?
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "snake_case")]
 pub enum Expression {
     /// The current tick.
     Tick,
@@ -26,17 +24,10 @@ pub enum Expression {
     MassCount,
     /// A floating point constant.
     Constant(f64),
-    /// The product of a series of expressions.
-    Multiply(Vec<Expression>),
-    /// The sum of a series of expressions.
-    Add(Vec<Expression>),
-    /// A series of expressions raised to the power of each next one.
-    Power(Vec<Expression>),
-    /// A series of expressions subtracted from each other *or* the negation of the single input
-    /// expression.
-    Subtract(Vec<Expression>),
-    /// A series of expressions successively divided by each other.
-    Divide(Vec<Expression>),
+    /// An operation applied to two expressions.
+    BinaryOp(Box<Expression>, BinaryOperator, Box<Expression>),
+    /// An operation applied to one expression.
+    UnaryOp(UnaryOperator, Box<Expression>),
 }
 
 impl Expression {
@@ -47,43 +38,70 @@ impl Expression {
             Expression::TotalMass => total_mass,
             Expression::MassCount => mass_count,
             Expression::Constant(value) => *value,
-            Expression::Multiply(ref subexprs) =>
-                fold_eval(tick, total_mass, mass_count, subexprs, |acc, next| acc * next),
-            Expression::Add(ref subexprs) => if subexprs.len() == 1 {
-                subexprs[0].eval(tick, total_mass, mass_count)
-            } else {
-                fold_eval(tick, total_mass, mass_count, subexprs, |acc, next| acc + next)
+            Expression::BinaryOp(left, op, right) => {
+                let left = left.eval(tick, total_mass, mass_count);
+                let right = right.eval(tick, total_mass, mass_count);
+                op.eval(left, right)
             },
-            Expression::Power(ref subexprs) =>
-                fold_eval(tick, total_mass, mass_count, subexprs, |acc, next| acc.powf(next)),
-            Expression::Subtract(ref subexprs) => if subexprs.len() == 1 {
-                -subexprs[0].eval(tick, total_mass, mass_count)
-            } else {
-                fold_eval(tick, total_mass, mass_count, subexprs, |acc, next| acc - next)
+            Expression::UnaryOp(op, value) => {
+                let value = value.eval(tick, total_mass, mass_count);
+                op.eval(value)
             },
-            Expression::Divide(ref subexprs) =>
-                fold_eval(tick, total_mass, mass_count, subexprs, |acc, next| acc / next),
         }
     }
 }
 
-fn fold_eval<F>(
-    tick: f64, total_mass: f64, mass_count: f64,
-    items: &[Expression],
-    mut func: F,
-) -> f64
-    where F: FnMut(f64, f64) -> f64,
-{
-    assert!(items.len() >= 2);
-    let mut iter = items.iter();
-    let first = iter.next().unwrap().eval(tick, total_mass, mass_count);
-    iter.fold(first, |acc, next| func(acc, next.eval(tick, total_mass, mass_count)))
+/// Represents a binary operator in the expression tree.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum BinaryOperator {
+    /// Add the operands.
+    Add,
+    /// Multiply the operands
+    Multiply,
+    /// Subtract the second operand from the first.
+    Subtract,
+    /// Divide the first operand by the secondd.
+    Divide,
+    /// Raise the first operand to the power of the second.
+    Exponent,
+}
+
+impl BinaryOperator {
+    fn eval(&self, first: f64, second: f64) -> f64 {
+        match self {
+            BinaryOperator::Add => first + second,
+            BinaryOperator::Multiply => first * second,
+            BinaryOperator::Subtract => first - second,
+            BinaryOperator::Divide => first / second,
+            BinaryOperator::Exponent => first.powf(second),
+        }
+    }
+}
+
+/// Represents a unary operator in the expression tree.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum UnaryOperator {
+    /// Apply unary negative.
+    Negative,
+    /// Apply unary positive (no-op).
+    Positive,
+}
+
+impl UnaryOperator {
+    fn eval(&self, value: f64) -> f64 {
+        match self {
+            UnaryOperator::Negative => -value,
+            UnaryOperator::Positive => value,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use self::Expression::*;
+    use self::BinaryOperator::*;
+    use self::UnaryOperator::*;
 
     const TICK: f64 = 9.;
     const TOTAL_MASS: f64 = 486.8;
@@ -115,108 +133,67 @@ mod tests {
 
     #[test]
     fn eval_multiply() {
-        assert_eval(
-            Multiply(vec![Tick, Constant(2.), TotalMass]),
-            TICK * 2. * TOTAL_MASS,
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn eval_multiply_too_few_items() {
-        Multiply(vec![Tick]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+        assert_eval(BinaryOp(Box::new(Tick), Multiply, Box::new(Constant(2.))), TICK * 2.);
     }
 
     #[test]
     fn eval_add() {
-        assert_eval(
-            Add(vec![Tick, Constant(2.), TotalMass]),
-            TICK + 2. + TOTAL_MASS,
-        );
-    }
-
-    #[test]
-    fn eval_unary_add() {
-        assert_eval(
-            Add(vec![Tick]),
-            TICK,
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn eval_add_too_few_items() {
-        Add(vec![]).eval(TICK, TOTAL_MASS, MASS_COUNT);
-    }
-
-    #[test]
-    fn eval_power() {
-        assert_eval(
-            Power(vec![Tick, Constant(2.), TotalMass]),
-            TICK.powf(2.).powf(TOTAL_MASS),
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn eval_power_too_few_items() {
-        Power(vec![Tick]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+        assert_eval(BinaryOp(Box::new(Tick), Add, Box::new(Constant(2.))), TICK + 2.);
     }
 
     #[test]
     fn eval_subtract() {
-        assert_eval(
-            Subtract(vec![Tick, Constant(2.), TotalMass]),
-            TICK - 2. - TOTAL_MASS,
-        );
-    }
-
-    #[test]
-    fn eval_unary_subtract() {
-        assert_eval(
-            Subtract(vec![Tick]),
-            -TICK,
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn eval_subtract_too_few_items() {
-        Subtract(vec![]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+        assert_eval(BinaryOp(Box::new(Tick), Subtract, Box::new(Constant(2.))), TICK - 2.);
     }
 
     #[test]
     fn eval_divide() {
-        assert_eval(
-            Divide(vec![Tick, Constant(2.), TotalMass]),
-            TICK / 2. / TOTAL_MASS,
-        );
+        assert_eval(BinaryOp(Box::new(Tick), Divide, Box::new(Constant(2.))), TICK / 2.);
     }
 
     #[test]
-    #[should_panic]
-    fn eval_divide_too_few_items() {
-        Divide(vec![Tick]).eval(TICK, TOTAL_MASS, MASS_COUNT);
+    fn eval_exponent() {
+        assert_eval(BinaryOp(Box::new(Tick), Exponent, Box::new(Constant(2.))), TICK.powf(2.));
+    }
+
+    #[test]
+    fn eval_positive() {
+        assert_eval(UnaryOp(Positive, Box::new(Tick)), TICK);
+    }
+
+    #[test]
+    fn eval_negative() {
+        assert_eval(UnaryOp(Negative, Box::new(Tick)), -TICK);
     }
 
     #[test]
     fn eval_complex() {
         assert_eval(
-            Subtract(vec![
-                Multiply(vec![
-                    Tick,
-                    Constant(8.),
-                    Add(vec![
-                        Constant(1.),
-                        Power(vec![
-                            TotalMass,
-                            Constant(1.5),
-                            Power(vec![MassCount, Constant(1.24)]),
-                        ]),
-                    ]),
-                ]),
-            ]),
-            -(TICK * 8. * (1. + TOTAL_MASS.powf(1.5).powf(MASS_COUNT.powf(1.24))))
+            UnaryOp(
+                Negative,
+                Box::new(BinaryOp(
+                    Box::new(BinaryOp(
+                        Box::new(Tick),
+                        Multiply,
+                        Box::new(Constant(8.)),
+                    )),
+                    Multiply,
+                    Box::new(BinaryOp(
+                        Box::new(Constant(1.)),
+                        Add,
+                        Box::new(BinaryOp(
+                            Box::new(TotalMass),
+                            Exponent,
+                            Box::new(BinaryOp(
+                                Box::new(MassCount),
+                                Divide,
+                                Box::new(Constant(1.24)),
+                            )),
+                        )),
+                    )),
+                )),
+            ),
+            -(TICK * 8. * (1. + TOTAL_MASS.powf(MASS_COUNT / 1.24)))
         );
     }
 }
