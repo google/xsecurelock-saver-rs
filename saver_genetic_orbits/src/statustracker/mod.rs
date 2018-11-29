@@ -42,6 +42,8 @@ use model::{Scenario, World};
 use storage::Storage;
 use worldgenerator::WorldGenerator;
 
+pub mod scoring_function;
+
 /// Resource for tracking the status of the currently active scene.
 pub struct ActiveWorld {
     /// The world being scored.
@@ -112,7 +114,8 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
                     total_mass += mass.linear as f64
                 }
             }
-            world_track.cumulative_score += total_mass * mass_count;
+            world_track.cumulative_score += scoring.per_frame_scoring_expression
+                .eval(world_track.ticks_completed as f64, total_mass, mass_count);
             world_track.ticks_completed += 1;
         } else {
             info!("Storing scored world");
