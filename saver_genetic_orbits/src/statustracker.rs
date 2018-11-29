@@ -115,7 +115,7 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
             world_track.cumulative_score += total_mass * mass_count;
             world_track.ticks_completed += 1;
         } else {
-            println!("Storing scored world");
+            info!("Storing scored world");
             let world = mem::replace(&mut world_track.world, World::default());
             let parent = mem::replace(&mut world_track.parent, None);
             let score = mem::replace(&mut world_track.cumulative_score, 0.);
@@ -125,8 +125,8 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
                 None => storage.add_root_scenario(world, score),
             };
             match store_result {
-                Err(error) => println!("Error while storing finished scenario: {}", error),
-                Ok(scenario) => println!(
+                Err(error) => error!("Error while storing finished scenario: {}", error),
+                Ok(scenario) => info!(
                     "Saved scenario {} (parent: {:?}, family: {}, generation: {}) with score {}",
                     scenario.id,
                     scenario.parent,

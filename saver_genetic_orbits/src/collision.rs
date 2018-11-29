@@ -145,7 +145,7 @@ impl<'a> System<'a> for MergeCollidedPlanets {
                 e2 = *e2successor;
             }
             if !entities.is_alive(e1) || !entities.is_alive(e2) {
-                println!("Collision between dead entities!");
+                warn!("Collision between dead entities!");
                 continue;
             }
             if e1 == e2 {
@@ -161,14 +161,14 @@ impl<'a> System<'a> for MergeCollidedPlanets {
             let (p1, v1, m1, c1, f1) = match e1props {
                 Some(props) => props,
                 None => {
-                    println!("Found entitiy missing some properties to be a planet");
+                    warn!("Found entitiy missing some properties to be a planet");
                     continue;
                 },
             };
             let (p2, v2, m2, c2, f2) = match e2props {
                 Some(props) => props,
                 None => {
-                    println!("Found entitiy missing some properties to be a planet");
+                    warn!("Found entitiy missing some properties to be a planet");
                     continue;
                 },
             };

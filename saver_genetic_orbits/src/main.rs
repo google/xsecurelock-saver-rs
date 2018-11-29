@@ -14,6 +14,8 @@
 
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate log;
 
 extern crate dirs;
 extern crate nalgebra;
@@ -77,7 +79,7 @@ fn main() {
     let config = get_config();
     let storage = match &config.database.database_path {
         Some(path) => {
-            println!("using database {}", path);
+            info!("using database {}", path);
             SqliteStorage::open(path).unwrap()
         },
         None => open_default_storage(),
@@ -141,13 +143,13 @@ fn open_default_storage() -> SqliteStorage {
         match create_res {
             Ok(()) => {
                 data_dir.push("scenario-db.sqlite3");
-                println!("using database {:?}", data_dir);
+                info!("using database {:?}", data_dir);
                 return SqliteStorage::open(data_dir).unwrap();
             },
-            Err(err) => println!("Unable to create storage directory ({}), opening in memory", err),
+            Err(err) => error!("Unable to create storage directory ({}), opening in memory", err),
         }
     }
-    println!("using in-memory database");
+    info!("using in-memory database");
     SqliteStorage::open_in_memory().unwrap()
 }
 
@@ -161,7 +163,7 @@ fn get_config() -> GeneticOrbitsConfig {
                     config
                 },
                 Err(err) => {
-                    println!("Error loading config: {}", err);
+                    error!("Error loading config: {}", err);
                     Default::default()
                 },
             }
@@ -198,7 +200,7 @@ fn try_open_config_file<P: AsRef<Path>>(b: P) -> Option<File> {
         .or_else(|err| if err.kind() == ErrorKind::NotFound {
             Err(())
         } else {
-            println!("unable to read config file {:?}: {}", b.as_ref(), err);
+            error!("unable to read config file {:?}: {}", b.as_ref(), err);
             Err(())
         })
         .ok()
