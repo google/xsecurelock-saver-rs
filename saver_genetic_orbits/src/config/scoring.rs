@@ -15,7 +15,7 @@
 //! Contains configuration structs for the scoring system.
 
 use config::{Validation, fix_invalid_helper};
-use statustracker::scoring_function::Expression;
+use statustracker::scoring_function::{Expression, BinaryOperator};
 
 /// Tuning parameters for world scoring.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,8 +39,10 @@ impl Default for ScoringConfig {
             // 1 minute (60,000 milliseconds) / 16 milliseconds per tick
             scored_ticks: 3750,
             scored_area: Default::default(),
-            per_frame_scoring_expression: Expression::Multiply(
-                vec![Expression::TotalMass, Expression::MassCount],
+            per_frame_scoring_expression: Expression::BinaryOp(
+                Box::new(Expression::TotalMass),
+                BinaryOperator::Multiply,
+                Box::new(Expression::MassCount),
             ),
         }
     }
