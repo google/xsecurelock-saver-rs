@@ -172,23 +172,23 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
     fn pick_scenario(&mut self, storage: &mut T, config: &GeneratorConfig) -> Option<Scenario> {
         let num_scenarios = match storage.num_scenarios() {
             Ok(ns) if ns < 0 => {
-                println!("Unexpected negative number of scenarios: {}", ns);
+                error!("Unexpected negative number of scenarios: {}", ns);
                 return None;
             },
             Ok(ns) if ns == 0 => {
-                println!("No existing scenarios to mutate, generating new one by default");
+                info!("No existing scenarios to mutate, generating new one by default");
                 return None;
             }
             Ok(ns) => ns,
             Err(err) => {
-                println!("Error getting number of scenarios: {}", err);
+                error!("Error getting number of scenarios: {}", err);
                 return None;
             },
         };
         let picked_scenario = self.select_index(num_scenarios, config);
         match storage.get_nth_scenario_by_score(picked_scenario) {
             Ok(Some(scenario)) => {
-                println!(
+                info!(
                     "Mutating Scenario {} (parent: {:?}, family: {}, generation: {})",
                     scenario.id,
                     scenario.parent,
@@ -198,11 +198,11 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
                 Some(scenario)
             },
             Ok(None) => {
-                println!("Generating new Scenario");
+                info!("Generating new Scenario");
                 None
             },
             Err(err) => {
-                println!(
+                error!(
                     "Generating new Scenario because of error fetching scenario {}: {}",
                     picked_scenario,
                     err,

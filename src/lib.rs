@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[macro_use]
+extern crate log;
+
 extern crate libc;
 extern crate sfml;
 
@@ -65,7 +68,7 @@ pub fn run_saver<F, S>(create_saver: F)
         saver.draw(&mut window);
         window.display();
     }
-    println!("Shutting Down");
+    info!("Shutting Down");
 }
 
 pub(crate) fn open_window() -> RenderWindow {
@@ -73,13 +76,13 @@ pub(crate) fn open_window() -> RenderWindow {
         // Get the ID of the window from the $XSCREENSAVER_WINDOW environment variable, if
         // available, otherwise create a window for testing.
         Ok(window_id_str) => {
-            println!("Opening existing window");
+            info!("Opening existing window");
             let window_handle = window_id_str.parse()
                 .expect("window id was not an integer");
             unsafe { RenderWindow::from_handle(window_handle, &Default::default()) }
         },
         Err(_) => {
-            println!("Creating new window");
+            info!("Creating new window");
             RenderWindow::new(
                 (1200, 900), 
                 "Screensaver Test Window",
@@ -88,6 +91,6 @@ pub(crate) fn open_window() -> RenderWindow {
             )
         },
     };
-    println!("Opened SFML Window");
+    info!("Opened SFML Window");
     window
 }

@@ -39,7 +39,7 @@ fn fix_invalid_helper<T, F>(
 {
     if !check_valid(source) {
         let old = ::std::mem::replace(source, default());
-        println!(
+        warn!(
             "{}.{} {}, but was {:?}; reset to default of {:?}.",
             path, name, requirement_desc, old, source,
         );

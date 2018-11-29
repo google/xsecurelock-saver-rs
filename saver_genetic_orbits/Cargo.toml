@@ -10,6 +10,7 @@ debug-timing = []
 circle-collision = { path = "../circle-collision" }
 dirs = "1.0"
 gravity = { path = "../gravity" }
+log = "0.4"
 nalgebra = "0.15"
 num-complex = "0.2"
 num-traits = "0.2"
