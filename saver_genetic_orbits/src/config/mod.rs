@@ -48,17 +48,15 @@ fn fix_invalid_helper<T, F>(
 
 /// Global configuration for the Genetic Orbits screensaver.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(default)]
 pub struct GeneticOrbitsConfig {
     /// Parameters for the database.
-    #[serde(default)]
     pub database: DatabaseConfig,
 
     /// Parameters for the generator/mutator.
-    #[serde(default)]
     pub generator: GeneratorConfig,
 
     /// Parameters affecting scoring.
-    #[serde(default)]
     pub scoring: ScoringConfig,
 }
 
