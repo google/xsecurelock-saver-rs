@@ -19,7 +19,7 @@ use lalrpop_util::ParseError;
 
 use self::scoring_function_parser::ExpressionParser;
 
-lalrpop_mod!(scoring_function_parser, "/statustracker/scoring_function_parser.rs");
+lalrpop_mod!(scoring_function_parser, "/statustracker/scoring_function/scoring_function_parser.rs");
 
 /// Expression for computing the per-frame score for a scene from that frame's total mass and total
 /// mass count and the tick count.
@@ -60,10 +60,8 @@ impl Expression {
     }
 }
 
-impl<'a> FromStr for Expression {
-    type Err = String;
-
-    fn from_str(source: &str) -> Result<Self, String> {
+impl Expression {
+    fn parse_unsimplified(source: &str) -> Result<Self, String> {
         ExpressionParser::new().parse(source).map_err(|err| match err {
             ParseError::InvalidToken{location} => build_error(
                 "Invalid token".to_owned(), location, source,
@@ -88,6 +86,14 @@ impl<'a> FromStr for Expression {
                 format!("Error parsing float {}", parse_err), location, source,
             ),
         })
+    }
+}
+
+impl FromStr for Expression {
+    type Err = String;
+
+    fn from_str(source: &str) -> Result<Self, String> {
+        Self::parse_unsimplified(source)
     }
 }
 
