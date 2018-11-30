@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+lalrpop_mod!(scoring_function_parser, "/statustracker/scoring_function_parser.rs");
+
 /// Expression for computing the per-frame score for a scene from that frame's total mass and total
 /// mass count and the tick count.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -48,6 +50,10 @@ impl Expression {
                 op.eval(value)
             },
         }
+    }
+
+    pub fn parse(from: &str) -> Result<Self, ()> {
+
     }
 }
 

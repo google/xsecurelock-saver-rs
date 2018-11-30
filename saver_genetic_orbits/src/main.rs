@@ -16,6 +16,8 @@
 extern crate serde_derive;
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate lalrpop_util;
 
 extern crate dirs;
 extern crate nalgebra;

@@ -1,0 +1,64 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use lalrpop_util::ParseError;
+use statustracker::scoring_function::Expression;
+use statustracker::scoring_function::BinaryOperator;
+use statustracker::scoring_function::UnaryOperator;
+
+grammar;
+
+BinaryOpTier<Op, NextTier>: Expression = {
+    <lhs:BinaryOpTier<Op, NextTier>> <op:Op> <rhs:NextTier> => 
+        Expression::BinaryOp(Box::new(lhs), op, Box::new(rhs)),
+    NextTier,
+};
+
+pub Expression: Expression = BinaryOpTier<AdditiveOperator, MultiplicationTier>;
+MultiplicationTier: Expression = BinaryOpTier<MultiplicativeOperator, PowerTier>;
+PowerTier: Expression = BinaryOpTier<PowerOperator, UnaryTier>;
+
+UnaryTier: Expression = {
+    <op:UnaryOperator> <val:Term> => Expression::UnaryOp(op, Box::new(val)),
+    Term,
+}
+
+Term: Expression = {
+    r"(?i)tick" => Expression::Tick,
+    r"(?i)total_mass" => Expression::TotalMass,
+    r"(?i)mass_count" => Expression::TotalMass,
+    <val:r"[-+]?([0-9]*\.?[0-9]+|[0-9]+\.)([eE][-+]?[0-9]+)?"> =>? match val.parse::<f64>() {
+        Ok(value) => Ok(Expression::Constant(value)),
+        Err(err) => Err(ParseError::User { error: err }),
+    },
+}
+
+AdditiveOperator: BinaryOperator = {
+    "+" => BinaryOperator::Add,
+    "-" => BinaryOperator::Subtract,
+};
+
+MultiplicativeOperator: BinaryOperator = {
+    "*" => BinaryOperator::Multiply,
+    "/" => BinaryOperator::Divide,
+};
+
+PowerOperator: BinaryOperator = {
+    "^" => BinaryOperator::Exponent,
+};
+
+UnaryOperator: UnaryOperator = {
+    "+" => UnaryOperator::Positive,
+    "-" => UnaryOperator::Negative,
+};
