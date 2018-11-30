@@ -14,6 +14,7 @@
 
 use std::marker::PhantomData;
 use std::mem;
+use std::str::FromStr;
 
 use specs::{
     Join,
@@ -42,7 +43,28 @@ use model::{Scenario, World};
 use storage::Storage;
 use worldgenerator::WorldGenerator;
 
-pub mod scoring_function;
+use self::scoring_function::Expression;
+
+mod scoring_function;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(transparent)]
+pub struct ScoringFunction(Expression);
+
+impl ScoringFunction {
+    /// Evaluate the expression given the scoring function inputs.
+    pub fn eval(&self, tick: f64, total_mass: f64, mass_count: f64) -> f64 {
+        self.0.eval(tick, total_mass, mass_count)
+    }
+}
+
+impl FromStr for ScoringFunction {
+    type Err = String;
+
+    fn from_str(source: &str) -> Result<ScoringFunction, String> {
+        source.parse().map(ScoringFunction)
+    }
+}
 
 /// Resource for tracking the status of the currently active scene.
 pub struct ActiveWorld {
@@ -114,7 +136,7 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
                     total_mass += mass.linear as f64
                 }
             }
-            world_track.cumulative_score += scoring.per_frame_scoring_expression
+            world_track.cumulative_score += scoring.per_frame_scoring
                 .eval(world_track.ticks_completed as f64, total_mass, mass_count);
             world_track.ticks_completed += 1;
         } else {

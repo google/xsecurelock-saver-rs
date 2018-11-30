@@ -13,17 +13,18 @@
 // limitations under the License.
 
 use std::str::FromStr;
-use std::fmt::Write;
+use std::fmt::{self, Write};
 
 use lalrpop_util::ParseError;
 
 use self::scoring_function_parser::ExpressionParser;
 
 lalrpop_mod!(scoring_function_parser, "/statustracker/scoring_function/scoring_function_parser.rs");
+mod expression_serde;
 
 /// Expression for computing the per-frame score for a scene from that frame's total mass and total
 /// mass count and the tick count.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     /// The current tick.
     Tick,
@@ -63,29 +64,68 @@ impl Expression {
 impl Expression {
     fn parse_unsimplified(source: &str) -> Result<Self, String> {
         ExpressionParser::new().parse(source).map_err(|err| match err {
-            ParseError::InvalidToken{location} => build_error(
+            ParseError::InvalidToken{location} => Self::build_error(
                 "Invalid token".to_owned(), location, source,
             ),
-            ParseError::UnrecognizedToken{token: Some((location, tok, _)), expected} => build_error(
-                if expected.len() == 1 {
-                    format!("Unexpected token {}; expected {}", tok, expected[0])
-                } else {
-                    format!("Unexpected token {}; expected one of {}", tok, expected.join(", "))
-                },
-                location, source,
-            ),
+            ParseError::UnrecognizedToken{token: Some((location, tok, _)), expected} => 
+                Self::build_error(
+                    if expected.len() == 1 {
+                        format!("Unexpected token {}; expected {}", tok, expected[0])
+                    } else {
+                        format!(
+                            "Unexpected token {}; expected one of {}", tok, expected.join(", "),
+                        )
+                    },
+                    location, source,
+                ),
             ParseError::UnrecognizedToken{token: None, expected} => if expected.len() == 1 {
                 format!("Unexpected EOF; expected {}", expected[0])
             } else {
                 format!("Unexpected EOF; expected one of {}", expected.join(", "))
             },
-            ParseError::ExtraToken{token: (location, tok, _)} => build_error(
+            ParseError::ExtraToken{token: (location, tok, _)} => Self::build_error(
                 format!("Unexpected extra token {}", tok), location, source,
             ),
-            ParseError::User{error: (location, parse_err)} => build_error(
+            ParseError::User{error: (location, parse_err)} => Self::build_error(
                 format!("Error parsing float {}", parse_err), location, source,
             ),
         })
+    }
+
+    fn build_error(mut message: String, location: usize, source: &str) -> String {
+        let (line_idx, col_idx, section) = Self::get_error_location(location, source);
+        write!(message, " on line {}, column {}\n{}\n", line_idx + 1, col_idx + 1, section)
+            .unwrap();
+        message.extend((0..col_idx).map(|_| ' '));
+        message.push('^');
+        message
+    }
+    
+    fn get_error_location(location: usize, source: &str) -> (usize, usize, &str) {
+        let mut line_start_index = 0;
+        for (line_idx, line) in source.split('\n').enumerate() {
+            let col_idx = location - line_start_index;
+            let len_with_newline = line.len() + 1;
+            // add 1 to line length because newlines are left out.
+            if col_idx < len_with_newline {
+                return (line_idx, col_idx, line);
+            }
+            line_start_index += len_with_newline;
+        }
+        panic!("Index location is outside of source string");
+    }
+
+    /// Effective precedence level for this expression. Uses binary operator precedence for binary
+    /// ops. All unary ops are ranked one higher, and atoms are highest.
+    fn precedence(&self) -> u32 {
+        match self {
+            Expression::Tick => 5,
+            Expression::TotalMass => 5,
+            Expression::MassCount => 5,
+            Expression::Constant(_) => 5,
+            Expression::BinaryOp(_, op, _) => op.precedence(),
+            Expression::UnaryOp(..) => 4,
+        }
     }
 }
 
@@ -97,26 +137,29 @@ impl FromStr for Expression {
     }
 }
 
-fn build_error(mut message: String, location: usize, source: &str) -> String {
-    let (line_idx, col_idx, section) = get_error_location(location, source);
-    write!(message, " on line {}, column {}\n{}\n", line_idx + 1, col_idx + 1, section).unwrap();
-    message.extend((0..col_idx).map(|_| ' '));
-    message.push('^');
-    message
-}
-
-fn get_error_location(location: usize, source: &str) -> (usize, usize, &str) {
-    let mut line_start_index = 0;
-    for (line_idx, line) in source.split('\n').enumerate() {
-        let col_idx = location - line_start_index;
-        let len_with_newline = line.len() + 1;
-        // add 1 to line length because newlines are left out.
-        if col_idx < len_with_newline {
-            return (line_idx, col_idx, line);
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expression::Tick => f.pad("tick"),
+            Expression::TotalMass => f.pad("total_mass"),
+            Expression::MassCount => f.pad("mass_count"),
+            Expression::Constant(v) => f.pad(&format!("{}", v)),
+            Expression::BinaryOp(lhs, op, rhs) => {
+                let mut self_string = if lhs.precedence() < op.precedence() {
+                    format!("({}) {}", lhs, op)
+                } else {
+                    format!("{} {}", lhs, op)
+                };
+                if rhs.precedence() <= op.precedence() {
+                    write!(self_string, " ({})", rhs)?;
+                } else {
+                    write!(self_string, " {}", rhs)?;
+                }
+                f.pad(&self_string)
+            },
+            Expression::UnaryOp(op, val) => f.pad(&format!("{}{}", op, val)),
         }
-        line_start_index += len_with_newline;
     }
-    panic!("Index location is outside of source string");
 }
 
 /// Represents a binary operator in the expression tree.
@@ -135,13 +178,36 @@ pub enum BinaryOperator {
 }
 
 impl BinaryOperator {
-    fn eval(&self, first: f64, second: f64) -> f64 {
+    fn eval(self, first: f64, second: f64) -> f64 {
         match self {
             BinaryOperator::Add => first + second,
             BinaryOperator::Multiply => first * second,
             BinaryOperator::Subtract => first - second,
             BinaryOperator::Divide => first / second,
             BinaryOperator::Exponent => first.powf(second),
+        }
+    }
+
+    /// Returns a precedence level for this operator. Higher numbers are executed sooner.
+    fn precedence(self) -> u32 {
+        match self {
+            BinaryOperator::Add => 1,
+            BinaryOperator::Multiply => 2,
+            BinaryOperator::Subtract => 1,
+            BinaryOperator::Divide => 2,
+            BinaryOperator::Exponent => 3,
+        }
+    }
+}
+
+impl fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BinaryOperator::Add => f.pad("+"),
+            BinaryOperator::Multiply => f.pad("*"),
+            BinaryOperator::Subtract => f.pad("-"),
+            BinaryOperator::Divide => f.pad("/"),
+            BinaryOperator::Exponent => f.pad("^"),
         }
     }
 }
@@ -156,13 +222,23 @@ pub enum UnaryOperator {
 }
 
 impl UnaryOperator {
-    fn eval(&self, value: f64) -> f64 {
+    fn eval(self, value: f64) -> f64 {
         match self {
             UnaryOperator::Negative => -value,
             UnaryOperator::Positive => value,
         }
     }
 }
+
+impl fmt::Display for UnaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UnaryOperator::Negative => f.pad("-"),
+            UnaryOperator::Positive => f.pad("+"),
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -427,6 +503,88 @@ mod tests {
     fn parse_unknown_symbols() {
         assert!(Expression::parse_unsimplified("1+x").is_err());
         assert!(Expression::parse_unsimplified("3*mass").is_err());
+    }
+
+    #[test]
+    fn display_tick() {
+        assert_display(Tick, "tick");
+    }
+
+    #[test]
+    fn display_total_mass() {
+        assert_display(TotalMass, "total_mass");
+    }
+
+    #[test]
+    fn display_mass_count() {
+        assert_display(MassCount, "mass_count");
+    }
+
+    #[test]
+    fn display_constant() {
+        assert_display(Constant(32.75), "32.75");
+    }
+
+    #[test]
+    fn display_neg_constant() {
+        assert_display(Constant(-32.75), "-32.75");
+    }
+
+    #[test]
+    fn display_unary_neg() {
+        assert_display(neg(39.625), "-39.625");
+    }
+
+    #[test]
+    fn display_unary_pos() {
+        assert_display(pos(39.625), "+39.625");
+    }
+
+    #[test]
+    fn display_add() {
+        assert_display(add(8, Tick), "8 + tick");
+    }
+
+    #[test]
+    fn display_sub() {
+        assert_display(sub(8, Tick), "8 - tick");
+    }
+
+    #[test]
+    fn display_mul() {
+        assert_display(mul(8, Tick), "8 * tick");
+    }
+
+    #[test]
+    fn display_div() {
+        assert_display(div(8, Tick), "8 / tick");
+    }
+
+    #[test]
+    fn display_exp() {
+        assert_display(exp(8, Tick), "8 ^ tick");
+    }
+
+    #[test]
+    fn display_left_precedence() {
+        assert_display(mul(add(Tick, 1), MassCount), "(tick + 1) * mass_count");
+        assert_display(div(mul(Tick, 1), MassCount), "tick * 1 / mass_count");
+        assert_display(mul(div(Tick, 1), MassCount), "tick / 1 * mass_count");
+        assert_display(mul(exp(Tick, 1), MassCount), "tick ^ 1 * mass_count");
+        assert_display(exp(mul(Tick, 1), MassCount), "(tick * 1) ^ mass_count");
+        assert_display(exp(exp(Tick, 1), MassCount), "tick ^ 1 ^ mass_count");
+    }
+
+    #[test]
+    fn display_right_precedence() {
+        assert_display(mul(MassCount, add(Tick, 1)), "mass_count * (tick + 1)");
+        assert_display(mul(MassCount, mul(Tick, 1)), "mass_count * (tick * 1)");
+        assert_display(mul(MassCount, exp(Tick, 1)), "mass_count * tick ^ 1");
+        assert_display(exp(MassCount, exp(Tick, 1)), "mass_count ^ (tick ^ 1)");
+    }
+
+    fn assert_display(expr: Expression, expected: &str) {
+        assert_eq!(format!("{}", expr), expected);
     }
 
     impl From<f64> for Expression {

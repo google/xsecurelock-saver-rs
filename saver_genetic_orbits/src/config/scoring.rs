@@ -15,7 +15,7 @@
 //! Contains configuration structs for the scoring system.
 
 use config::{Validation, fix_invalid_helper};
-use statustracker::scoring_function::{Expression, BinaryOperator};
+use statustracker::ScoringFunction;
 
 /// Tuning parameters for world scoring.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -29,8 +29,11 @@ pub struct ScoringConfig {
     pub scored_area: ScoredArea,
 
     /// Expression that is evaluated each frame to determine the score for that frame, to be added
-    /// to the cumulative score. I'm sorry for using yaml lists as s-expressions.
-    pub per_frame_scoring_expression: Expression,
+    /// to the cumulative score. This is a simple math expression and can use three variables:
+    /// - `tick` is the frame number, from zero to `scored_ticks`.
+    /// - `total_mass` is the total mass of all planets in the `scored_area`.
+    /// - `mass_count` is the number of masses in the `scored_area`.
+    pub per_frame_scoring: ScoringFunction,
 }
 
 impl Default for ScoringConfig {
@@ -39,11 +42,7 @@ impl Default for ScoringConfig {
             // 1 minute (60,000 milliseconds) / 16 milliseconds per tick
             scored_ticks: 3750,
             scored_area: Default::default(),
-            per_frame_scoring_expression: Expression::BinaryOp(
-                Box::new(Expression::TotalMass),
-                BinaryOperator::Multiply,
-                Box::new(Expression::MassCount),
-            ),
+            per_frame_scoring: "total_mass * mass_count".parse().unwrap(),
         }
     }
 }
