@@ -389,6 +389,31 @@ mod tests {
         assert_eq!("(1*2)^(3+4)".parse(), Ok(exp(mul(1, 2), add(3, 4))));
     }
 
+    #[test]
+    fn parse_nested_parens() {
+        assert_eq!("1+2*3^-4".parse(), Ok(add(1, mul(2, exp(3, neg(4))))));
+        assert_eq!("((1+2)*3)^-4".parse(), Ok(exp(mul(add(1, 2), 3), neg(4))));
+    }
+
+    #[test]
+    fn parse_unmatched() {
+        assert!("1+2*(3+4".parse::<Expression>().is_err());
+    }
+
+    #[test]
+    fn parse_bad() {
+        assert!("1+".parse::<Expression>().is_err());
+        assert!("1+2 3".parse::<Expression>().is_err());
+        assert!("1+*2".parse::<Expression>().is_err());
+        assert!("1*^2".parse::<Expression>().is_err());
+    }
+
+    #[test]
+    fn parse_unknown_symbols() {
+        assert!("1+x".parse::<Expression>().is_err());
+        assert!("3*mass".parse::<Expression>().is_err());
+    }
+
     impl From<f64> for Expression {
         fn from(val: f64) -> Self { Constant(val) }
     }
