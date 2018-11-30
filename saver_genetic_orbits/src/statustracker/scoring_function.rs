@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::str::FromStr;
+use std::fmt::Write;
+
+use lalrpop_util::ParseError;
+
+use self::scoring_function_parser::ExpressionParser;
+
 lalrpop_mod!(scoring_function_parser, "/statustracker/scoring_function_parser.rs");
 
 /// Expression for computing the per-frame score for a scene from that frame's total mass and total
 /// mass count and the tick count.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Expression {
     /// The current tick.
     Tick,
@@ -51,14 +58,63 @@ impl Expression {
             },
         }
     }
+}
 
-    pub fn parse(from: &str) -> Result<Self, ()> {
+impl<'a> FromStr for Expression {
+    type Err = String;
 
+    fn from_str(source: &str) -> Result<Self, String> {
+        ExpressionParser::new().parse(source).map_err(|err| match err {
+            ParseError::InvalidToken{location} => build_error(
+                "Invalid token".to_owned(), location, source,
+            ),
+            ParseError::UnrecognizedToken{token: Some((location, tok, _)), expected} => build_error(
+                if expected.len() == 1 {
+                    format!("Unexpected token {}; expected {}", tok, expected[0])
+                } else {
+                    format!("Unexpected token {}; expected one of {}", tok, expected.join(", "))
+                },
+                location, source,
+            ),
+            ParseError::UnrecognizedToken{token: None, expected} => if expected.len() == 1 {
+                format!("Unexpected EOF; expected {}", expected[0])
+            } else {
+                format!("Unexpected EOF; expected one of {}", expected.join(", "))
+            },
+            ParseError::ExtraToken{token: (location, tok, _)} => build_error(
+                format!("Unexpected extra token {}", tok), location, source,
+            ),
+            ParseError::User{error: (location, parse_err)} => build_error(
+                format!("Error parsing float {}", parse_err), location, source,
+            ),
+        })
     }
 }
 
+fn build_error(mut message: String, location: usize, source: &str) -> String {
+    let (line_idx, col_idx, section) = get_error_location(location, source);
+    write!(message, " on line {}, column {}\n{}\n", line_idx + 1, col_idx + 1, section).unwrap();
+    message.extend((0..col_idx).map(|_| ' '));
+    message.push('^');
+    message
+}
+
+fn get_error_location(location: usize, source: &str) -> (usize, usize, &str) {
+    let mut line_start_index = 0;
+    for (line_idx, line) in source.split('\n').enumerate() {
+        let col_idx = location - line_start_index;
+        let len_with_newline = line.len() + 1;
+        // add 1 to line length because newlines are left out.
+        if col_idx < len_with_newline {
+            return (line_idx, col_idx, line);
+        }
+        line_start_index += len_with_newline;
+    }
+    panic!("Index location is outside of source string");
+}
+
 /// Represents a binary operator in the expression tree.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOperator {
     /// Add the operands.
     Add,
@@ -85,7 +141,7 @@ impl BinaryOperator {
 }
 
 /// Represents a unary operator in the expression tree.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOperator {
     /// Apply unary negative.
     Negative,
@@ -201,5 +257,165 @@ mod tests {
             ),
             -(TICK * 8. * (1. + TOTAL_MASS.powf(MASS_COUNT / 1.24)))
         );
+    }
+
+    #[test]
+    fn parse_float() {
+        assert_eq!("1".parse(), Ok(Constant(1.)));
+        assert_eq!("1.".parse(), Ok(Constant(1.)));
+        assert_eq!(".25".parse(), Ok(Constant(0.25)));
+        assert_eq!("0.25".parse(), Ok(Constant(0.25)));
+        assert_eq!("0.25e1".parse(), Ok(Constant(2.5)));
+        assert_eq!("-0.25e1".parse(), Ok(neg(2.5)));
+        assert_eq!("-0.25E-1".parse(), Ok(neg(0.025)));
+        assert_eq!(
+            "0.1032903209239048230948093209842098323209482".parse(),
+            Ok(Constant(0.10329032092390482)),
+        );
+        assert_eq!("1.5e99999999".parse(), Ok(Constant(::std::f64::INFINITY)));
+    }
+
+    #[test]
+    fn parse_tick() {
+        assert_eq!("tick".parse(), Ok(Tick));
+        assert_eq!("TICK".parse(), Ok(Tick));
+        assert_eq!("TiCk".parse(), Ok(Tick));
+        assert_eq!("ticK".parse(), Ok(Tick));
+    }
+
+    #[test]
+    fn parse_total_mass() {
+        assert_eq!("total_mass".parse(), Ok(TotalMass));
+        assert_eq!("TOTAL_MASS".parse(), Ok(TotalMass));
+        assert_eq!("ToTaL_mAsS".parse(), Ok(TotalMass));
+    }
+
+    #[test]
+    fn parse_mass_count() {
+        assert_eq!("mass_count".parse(), Ok(MassCount));
+        assert_eq!("MASS_COUNT".parse(), Ok(MassCount));
+        assert_eq!("MaSs_CoUnT".parse(), Ok(MassCount));
+    }
+
+    #[test]
+    fn parse_add() {
+        let expected = add(1, 2);
+        assert_eq!("1+2".parse(), Ok(expected.clone()));
+        assert_eq!("1 +2".parse(), Ok(expected.clone()));
+        assert_eq!("1 + 2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_subtract() {
+        let expected = sub(1, 2);
+        assert_eq!("1-2".parse(), Ok(expected.clone()));
+        assert_eq!("1 -2".parse(), Ok(expected.clone()));
+        assert_eq!("1 - 2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_multiply() {
+        let expected = mul(1, 2);
+        assert_eq!("1*2".parse(), Ok(expected.clone()));
+        assert_eq!("1 *2".parse(), Ok(expected.clone()));
+        assert_eq!("1 * 2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_divide() {
+        let expected = div(1, 2);
+        assert_eq!("1/2".parse(), Ok(expected.clone()));
+        assert_eq!("1 /2".parse(), Ok(expected.clone()));
+        assert_eq!("1 / 2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_exponent() {
+        let expected = exp(1, 2);
+        assert_eq!("1^2".parse(), Ok(expected.clone()));
+        assert_eq!("1 ^2".parse(), Ok(expected.clone()));
+        assert_eq!("1 ^ 2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_positive() {
+        let expected = pos(2);
+        assert_eq!("+ 2".parse(), Ok(expected.clone()));
+        assert_eq!("+2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_negative() {
+        let expected = neg(2);
+        assert_eq!("- 2".parse(), Ok(expected.clone()));
+        assert_eq!("-2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_multiple_unary() {
+        assert!("--2".parse::<Expression>().is_err());
+    }
+
+    #[test]
+    fn parse_unary_and_binary() {
+        let expected = sub(neg(1), neg(2));
+        assert_eq!("-1--2".parse(), Ok(expected.clone()));
+        assert_eq!("-1 - -2".parse(), Ok(expected.clone()));
+        assert_eq!("-10e-1 - -200e-2".parse(), Ok(expected));
+    }
+
+    #[test]
+    fn parse_precedence() {
+        let expected = add(
+            sub(add(neg(1), div(mul(2, 3), exp(TotalMass, 4))), mul(pos(Tick), neg(1))),
+            mul(exp(2, neg(9)), 5),
+        );
+        // (((-1) + ((2*3)/(total_mass^4))) - ((+tick)*(-1))) + ((2^(-9))*5)
+        assert_eq!("-1+2*3/total_mass^4-+tick*-1+2^-9*5".parse(), Ok(expected.clone()));
+    }
+
+
+    #[test]
+    fn parse_parens() {
+        assert_eq!("-(1+2)".parse(), Ok(neg(add(1, 2))));
+        assert_eq!("-1+2".parse(), Ok(add(neg(1), 2)));
+
+        assert_eq!("1+2*3".parse(), Ok(add(1, mul(2, 3))));
+        assert_eq!("(1+2)*3".parse(), Ok(mul(add(1, 2), 3)));
+
+        assert_eq!("1*2^3+4".parse(), Ok(add(mul(1, exp(2, 3)), 4)));
+        assert_eq!("(1*2)^3+4".parse(), Ok(add(exp(mul(1, 2), 3), 4)));
+        assert_eq!("1*2^(3+4)".parse(), Ok(mul(1, exp(2, add(3, 4)))));
+        assert_eq!("(1*2)^(3+4)".parse(), Ok(exp(mul(1, 2), add(3, 4))));
+    }
+
+    impl From<f64> for Expression {
+        fn from(val: f64) -> Self { Constant(val) }
+    }
+
+    impl From<u64> for Expression {
+        fn from(val: u64) -> Self { Constant(val as f64) }
+    }
+
+    fn add<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+        BinaryOp(Box::new(lhs.into()), Add, Box::new(rhs.into()))
+    }
+    fn sub<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+        BinaryOp(Box::new(lhs.into()), Subtract, Box::new(rhs.into()))
+    }
+    fn mul<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+        BinaryOp(Box::new(lhs.into()), Multiply, Box::new(rhs.into()))
+    }
+    fn div<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+        BinaryOp(Box::new(lhs.into()), Divide, Box::new(rhs.into()))
+    }
+    fn exp<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+        BinaryOp(Box::new(lhs.into()), Exponent, Box::new(rhs.into()))
+    }
+    fn neg<E: Into<Expression>>(val: E) -> Expression {
+        UnaryOp(Negative, Box::new(val.into()))
+    }
+    fn pos<E: Into<Expression>>(val: E) -> Expression {
+        UnaryOp(Positive, Box::new(val.into()))
     }
 }

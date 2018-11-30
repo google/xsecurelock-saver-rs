@@ -12,12 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::num::ParseFloatError;
+
 use lalrpop_util::ParseError;
 use statustracker::scoring_function::Expression;
 use statustracker::scoring_function::BinaryOperator;
 use statustracker::scoring_function::UnaryOperator;
 
 grammar;
+
+extern {
+    type Error = (usize, ParseFloatError);
+}
 
 BinaryOpTier<Op, NextTier>: Expression = {
     <lhs:BinaryOpTier<Op, NextTier>> <op:Op> <rhs:NextTier> => 
@@ -32,17 +38,23 @@ PowerTier: Expression = BinaryOpTier<PowerOperator, UnaryTier>;
 UnaryTier: Expression = {
     <op:UnaryOperator> <val:Term> => Expression::UnaryOp(op, Box::new(val)),
     Term,
-}
+};
 
 Term: Expression = {
+    "(" <Expression> ")" => <>,
+    Atom,
+};
+
+Atom: Expression = {
     r"(?i)tick" => Expression::Tick,
     r"(?i)total_mass" => Expression::TotalMass,
-    r"(?i)mass_count" => Expression::TotalMass,
-    <val:r"[-+]?([0-9]*\.?[0-9]+|[0-9]+\.)([eE][-+]?[0-9]+)?"> =>? match val.parse::<f64>() {
-        Ok(value) => Ok(Expression::Constant(value)),
-        Err(err) => Err(ParseError::User { error: err }),
-    },
-}
+    r"(?i)mass_count" => Expression::MassCount,
+    <loc: @L> <val:r"([0-9]+\.[0-9]+|[0-9]+\.|\.[0-9]+|[0-9]+)([eE][-+]?[0-9]+)?"> =>? 
+        match val.parse::<f64>() {
+            Ok(value) => Ok(Expression::Constant(value)),
+            Err(err) => Err(ParseError::User { error: (loc, err) }),
+        },
+};
 
 AdditiveOperator: BinaryOperator = {
     "+" => BinaryOperator::Add,
