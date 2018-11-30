@@ -267,107 +267,110 @@ mod tests {
 
     #[test]
     fn parse_float() {
-        assert_eq!("1".parse(), Ok(Constant(1.)));
-        assert_eq!("1.".parse(), Ok(Constant(1.)));
-        assert_eq!(".25".parse(), Ok(Constant(0.25)));
-        assert_eq!("0.25".parse(), Ok(Constant(0.25)));
-        assert_eq!("0.25e1".parse(), Ok(Constant(2.5)));
-        assert_eq!("-0.25e1".parse(), Ok(neg(2.5)));
-        assert_eq!("-0.25E-1".parse(), Ok(neg(0.025)));
+        assert_eq!(Expression::parse_unsimplified("1"), Ok(Constant(1.)));
+        assert_eq!(Expression::parse_unsimplified("1."), Ok(Constant(1.)));
+        assert_eq!(Expression::parse_unsimplified(".25"), Ok(Constant(0.25)));
+        assert_eq!(Expression::parse_unsimplified("0.25"), Ok(Constant(0.25)));
+        assert_eq!(Expression::parse_unsimplified("0.25e1"), Ok(Constant(2.5)));
+        assert_eq!(Expression::parse_unsimplified("-0.25e1"), Ok(neg(2.5)));
+        assert_eq!(Expression::parse_unsimplified("-0.25E-1"), Ok(neg(0.025)));
         assert_eq!(
-            "0.1032903209239048230948093209842098323209482".parse(),
+            Expression::parse_unsimplified("0.1032903209239048230948093209842098323209482"),
             Ok(Constant(0.10329032092390482)),
         );
-        assert_eq!("1.5e99999999".parse(), Ok(Constant(::std::f64::INFINITY)));
+        assert_eq!(
+            Expression::parse_unsimplified("1.5e99999999"),
+            Ok(Constant(::std::f64::INFINITY)),
+        );
     }
 
     #[test]
     fn parse_tick() {
-        assert_eq!("tick".parse(), Ok(Tick));
-        assert_eq!("TICK".parse(), Ok(Tick));
-        assert_eq!("TiCk".parse(), Ok(Tick));
-        assert_eq!("ticK".parse(), Ok(Tick));
+        assert_eq!(Expression::parse_unsimplified("tick"), Ok(Tick));
+        assert_eq!(Expression::parse_unsimplified("TICK"), Ok(Tick));
+        assert_eq!(Expression::parse_unsimplified("TiCk"), Ok(Tick));
+        assert_eq!(Expression::parse_unsimplified("ticK"), Ok(Tick));
     }
 
     #[test]
     fn parse_total_mass() {
-        assert_eq!("total_mass".parse(), Ok(TotalMass));
-        assert_eq!("TOTAL_MASS".parse(), Ok(TotalMass));
-        assert_eq!("ToTaL_mAsS".parse(), Ok(TotalMass));
+        assert_eq!(Expression::parse_unsimplified("total_mass"), Ok(TotalMass));
+        assert_eq!(Expression::parse_unsimplified("TOTAL_MASS"), Ok(TotalMass));
+        assert_eq!(Expression::parse_unsimplified("ToTaL_mAsS"), Ok(TotalMass));
     }
 
     #[test]
     fn parse_mass_count() {
-        assert_eq!("mass_count".parse(), Ok(MassCount));
-        assert_eq!("MASS_COUNT".parse(), Ok(MassCount));
-        assert_eq!("MaSs_CoUnT".parse(), Ok(MassCount));
+        assert_eq!(Expression::parse_unsimplified("mass_count"), Ok(MassCount));
+        assert_eq!(Expression::parse_unsimplified("MASS_COUNT"), Ok(MassCount));
+        assert_eq!(Expression::parse_unsimplified("MaSs_CoUnT"), Ok(MassCount));
     }
 
     #[test]
     fn parse_add() {
         let expected = add(1, 2);
-        assert_eq!("1+2".parse(), Ok(expected.clone()));
-        assert_eq!("1 +2".parse(), Ok(expected.clone()));
-        assert_eq!("1 + 2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("1+2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 +2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 + 2"), Ok(expected));
     }
 
     #[test]
     fn parse_subtract() {
         let expected = sub(1, 2);
-        assert_eq!("1-2".parse(), Ok(expected.clone()));
-        assert_eq!("1 -2".parse(), Ok(expected.clone()));
-        assert_eq!("1 - 2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("1-2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 -2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 - 2"), Ok(expected));
     }
 
     #[test]
     fn parse_multiply() {
         let expected = mul(1, 2);
-        assert_eq!("1*2".parse(), Ok(expected.clone()));
-        assert_eq!("1 *2".parse(), Ok(expected.clone()));
-        assert_eq!("1 * 2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("1*2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 *2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 * 2"), Ok(expected));
     }
 
     #[test]
     fn parse_divide() {
         let expected = div(1, 2);
-        assert_eq!("1/2".parse(), Ok(expected.clone()));
-        assert_eq!("1 /2".parse(), Ok(expected.clone()));
-        assert_eq!("1 / 2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("1/2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 /2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 / 2"), Ok(expected));
     }
 
     #[test]
     fn parse_exponent() {
         let expected = exp(1, 2);
-        assert_eq!("1^2".parse(), Ok(expected.clone()));
-        assert_eq!("1 ^2".parse(), Ok(expected.clone()));
-        assert_eq!("1 ^ 2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("1^2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 ^2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("1 ^ 2"), Ok(expected));
     }
 
     #[test]
     fn parse_positive() {
         let expected = pos(2);
-        assert_eq!("+ 2".parse(), Ok(expected.clone()));
-        assert_eq!("+2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("+ 2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("+2"), Ok(expected));
     }
 
     #[test]
     fn parse_negative() {
         let expected = neg(2);
-        assert_eq!("- 2".parse(), Ok(expected.clone()));
-        assert_eq!("-2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("- 2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("-2"), Ok(expected));
     }
 
     #[test]
     fn parse_multiple_unary() {
-        assert!("--2".parse::<Expression>().is_err());
+        assert!(Expression::parse_unsimplified("--2").is_err());
     }
 
     #[test]
     fn parse_unary_and_binary() {
         let expected = sub(neg(1), neg(2));
-        assert_eq!("-1--2".parse(), Ok(expected.clone()));
-        assert_eq!("-1 - -2".parse(), Ok(expected.clone()));
-        assert_eq!("-10e-1 - -200e-2".parse(), Ok(expected));
+        assert_eq!(Expression::parse_unsimplified("-1--2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("-1 - -2"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("-10e-1 - -200e-2"), Ok(expected));
     }
 
     #[test]
@@ -377,47 +380,53 @@ mod tests {
             mul(exp(2, neg(9)), 5),
         );
         // (((-1) + ((2*3)/(total_mass^4))) - ((+tick)*(-1))) + ((2^(-9))*5)
-        assert_eq!("-1+2*3/total_mass^4-+tick*-1+2^-9*5".parse(), Ok(expected.clone()));
+        assert_eq!(
+            Expression::parse_unsimplified("-1+2*3/total_mass^4-+tick*-1+2^-9*5"),
+            Ok(expected.clone()),
+        );
     }
 
 
     #[test]
     fn parse_parens() {
-        assert_eq!("-(1+2)".parse(), Ok(neg(add(1, 2))));
-        assert_eq!("-1+2".parse(), Ok(add(neg(1), 2)));
+        assert_eq!(Expression::parse_unsimplified("-(1+2)"), Ok(neg(add(1, 2))));
+        assert_eq!(Expression::parse_unsimplified("-1+2"), Ok(add(neg(1), 2)));
 
-        assert_eq!("1+2*3".parse(), Ok(add(1, mul(2, 3))));
-        assert_eq!("(1+2)*3".parse(), Ok(mul(add(1, 2), 3)));
+        assert_eq!(Expression::parse_unsimplified("1+2*3"), Ok(add(1, mul(2, 3))));
+        assert_eq!(Expression::parse_unsimplified("(1+2)*3"), Ok(mul(add(1, 2), 3)));
 
-        assert_eq!("1*2^3+4".parse(), Ok(add(mul(1, exp(2, 3)), 4)));
-        assert_eq!("(1*2)^3+4".parse(), Ok(add(exp(mul(1, 2), 3), 4)));
-        assert_eq!("1*2^(3+4)".parse(), Ok(mul(1, exp(2, add(3, 4)))));
-        assert_eq!("(1*2)^(3+4)".parse(), Ok(exp(mul(1, 2), add(3, 4))));
+        assert_eq!(Expression::parse_unsimplified("1*2^3+4"), Ok(add(mul(1, exp(2, 3)), 4)));
+        assert_eq!(Expression::parse_unsimplified("(1*2)^3+4"), Ok(add(exp(mul(1, 2), 3), 4)));
+        assert_eq!(Expression::parse_unsimplified("1*2^(3+4)"), Ok(mul(1, exp(2, add(3, 4)))));
+        assert_eq!(Expression::parse_unsimplified("(1*2)^(3+4)"), Ok(exp(mul(1, 2), add(3, 4))));
     }
 
     #[test]
     fn parse_nested_parens() {
-        assert_eq!("1+2*3^-4".parse(), Ok(add(1, mul(2, exp(3, neg(4))))));
-        assert_eq!("((1+2)*3)^-4".parse(), Ok(exp(mul(add(1, 2), 3), neg(4))));
+        assert_eq!(Expression::parse_unsimplified("1+2*3^-4"), Ok(add(1, mul(2, exp(3, neg(4))))));
+        assert_eq!(
+            Expression::parse_unsimplified("((1+2)*3)^-4"),
+            Ok(exp(mul(add(1, 2), 3), neg(4))),
+        );
     }
 
     #[test]
     fn parse_unmatched() {
-        assert!("1+2*(3+4".parse::<Expression>().is_err());
+        assert!(Expression::parse_unsimplified("1+2*(3+4").is_err());
     }
 
     #[test]
     fn parse_bad() {
-        assert!("1+".parse::<Expression>().is_err());
-        assert!("1+2 3".parse::<Expression>().is_err());
-        assert!("1+*2".parse::<Expression>().is_err());
-        assert!("1*^2".parse::<Expression>().is_err());
+        assert!(Expression::parse_unsimplified("1+").is_err());
+        assert!(Expression::parse_unsimplified("1+2 3").is_err());
+        assert!(Expression::parse_unsimplified("1+*2").is_err());
+        assert!(Expression::parse_unsimplified("1*^2").is_err());
     }
 
     #[test]
     fn parse_unknown_symbols() {
-        assert!("1+x".parse::<Expression>().is_err());
-        assert!("3*mass".parse::<Expression>().is_err());
+        assert!(Expression::parse_unsimplified("1+x").is_err());
+        assert!(Expression::parse_unsimplified("3*mass").is_err());
     }
 
     impl From<f64> for Expression {
