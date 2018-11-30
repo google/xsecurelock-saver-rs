@@ -36,7 +36,7 @@ MultiplicationTier: Expression = BinaryOpTier<MultiplicativeOperator, PowerTier>
 PowerTier: Expression = BinaryOpTier<PowerOperator, UnaryTier>;
 
 UnaryTier: Expression = {
-    <op:UnaryOperator> <val:Term> => Expression::UnaryOp(op, Box::new(val)),
+    <op:UnaryOperator> <val:UnaryTier> => Expression::UnaryOp(op, Box::new(val)),
     Term,
 };
 

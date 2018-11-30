@@ -438,7 +438,11 @@ mod tests {
 
     #[test]
     fn parse_multiple_unary() {
-        assert!(Expression::parse_unsimplified("--2").is_err());
+        assert_eq!(Expression::parse_unsimplified("-+-2"), Ok(neg(pos(neg(2)))));
+        assert_eq!(
+            Expression::parse_unsimplified("--1+-+-2"),
+            Ok(add(neg(neg(1)), neg(pos(neg(2))))),
+        );
     }
 
     #[test]
