@@ -21,6 +21,7 @@ use self::scoring_function_parser::ExpressionParser;
 
 lalrpop_mod!(scoring_function_parser, "/statustracker/scoring_function/scoring_function_parser.rs");
 mod expression_serde;
+mod transforms;
 
 /// Expression for computing the per-frame score for a scene from that frame's total mass and total
 /// mass count and the tick count.
@@ -133,7 +134,7 @@ impl FromStr for Expression {
     type Err = String;
 
     fn from_str(source: &str) -> Result<Self, String> {
-        Self::parse_unsimplified(source)
+        Self::parse_unsimplified(source).map(Self::simplify)
     }
 }
 
@@ -599,25 +600,25 @@ mod tests {
         fn from(val: u64) -> Self { Constant(val as f64) }
     }
 
-    fn add<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+    pub(super) fn add<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
         BinaryOp(Box::new(lhs.into()), Add, Box::new(rhs.into()))
     }
-    fn sub<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+    pub(super) fn sub<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
         BinaryOp(Box::new(lhs.into()), Subtract, Box::new(rhs.into()))
     }
-    fn mul<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+    pub(super) fn mul<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
         BinaryOp(Box::new(lhs.into()), Multiply, Box::new(rhs.into()))
     }
-    fn div<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+    pub(super) fn div<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
         BinaryOp(Box::new(lhs.into()), Divide, Box::new(rhs.into()))
     }
-    fn exp<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
+    pub(super) fn exp<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {
         BinaryOp(Box::new(lhs.into()), Exponent, Box::new(rhs.into()))
     }
-    fn neg<E: Into<Expression>>(val: E) -> Expression {
+    pub(super) fn neg<E: Into<Expression>>(val: E) -> Expression {
         UnaryOp(Negative, Box::new(val.into()))
     }
-    fn pos<E: Into<Expression>>(val: E) -> Expression {
+    pub(super) fn pos<E: Into<Expression>>(val: E) -> Expression {
         UnaryOp(Positive, Box::new(val.into()))
     }
 }
