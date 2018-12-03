@@ -239,6 +239,7 @@ impl<T, R: Rng> WorldGenerator<T, R> {
                 Uniform::new_inclusive(min as usize, max as usize).sample(&mut self.rng),
         };
         let num_planets = params.num_planets_range.clamp_inclusive(num_planets);
+        info!("Generating {} planets", num_planets);
 
         let mut planets = Vec::with_capacity(num_planets);
         for _ in 0..num_planets {
@@ -247,6 +248,7 @@ impl<T, R: Rng> WorldGenerator<T, R> {
 
         let mut world = World { planets };
         world.merge_overlapping_planets();
+        info!("After overlap cleanup, world had {} planets", world.planets.len());
         world
     }
     
@@ -289,20 +291,25 @@ impl<T, R: Rng> WorldGenerator<T, R> {
             let selected = Uniform::new(0, world.planets.len()).sample(&mut self.rng);
             world.planets.remove(selected);
         }
+        info!("Removed {} planets" , num_planets_to_remove);
 
         // Modify
+        let mut num_modified = 0;
         for planet in world.planets.iter_mut() {
             if change_planet_dist.sample(&mut self.rng) {
                 self.mutate_planet(planet, &params.planet_mutation_parameters);
+                num_modified += 1;
             }
         }
+        info!("Modified {} planets" , num_modified);
 
         for _ in 0..num_planets_to_add {
             world.planets.push(self.generate_new_planet(&params.new_planet_parameters));
         }
+        info!("Added {} planets" , num_planets_to_add);
 
         world.merge_overlapping_planets();
-
+        info!("After overlap cleanup, world had {} planets", world.planets.len());
         world
     }
 

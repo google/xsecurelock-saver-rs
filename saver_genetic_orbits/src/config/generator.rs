@@ -224,8 +224,8 @@ impl Default for NewPlanetParameters {
     fn default() -> Self {
         NewPlanetParameters {
             start_position: UniformDistribution {
-                min: Vector::new(-2000., 2000.),
-                max: Vector::new(-2000., 2000.),
+                min: Vector::new(-2000., -2000.),
+                max: Vector::new(2000., 2000.),
             },
             start_velocity: SerVec {
                 x: NormalDistribution {
