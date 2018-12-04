@@ -158,6 +158,8 @@ impl fmt::Display for Expression {
                 }
                 f.pad(&self_string)
             },
+            Expression::UnaryOp(op, val) if op.parenthesized_operand() => 
+                f.pad(&format!("{}({})", op, val)),
             Expression::UnaryOp(op, val) => f.pad(&format!("{}{}", op, val)),
         }
     }
@@ -220,6 +222,10 @@ pub enum UnaryOperator {
     Negative,
     /// Apply unary positive (no-op).
     Positive,
+    /// The natural logarithm.
+    NaturalLog,
+    /// The base 10 logarithm.
+    Base10Log,
 }
 
 impl UnaryOperator {
@@ -227,6 +233,15 @@ impl UnaryOperator {
         match self {
             UnaryOperator::Negative => -value,
             UnaryOperator::Positive => value,
+            UnaryOperator::NaturalLog => value.ln(),
+            UnaryOperator::Base10Log => value.log10(),
+        }
+    }
+
+    fn parenthesized_operand(self) -> bool {
+        match self {
+            UnaryOperator::Positive | UnaryOperator::Negative => false,
+            _ =>  true,
         }
     }
 }
@@ -236,6 +251,8 @@ impl fmt::Display for UnaryOperator {
         match self {
             UnaryOperator::Negative => f.pad("-"),
             UnaryOperator::Positive => f.pad("+"),
+            UnaryOperator::NaturalLog => f.pad("ln"),
+            UnaryOperator::Base10Log => f.pad("log"),
         }
     }
 }
@@ -309,6 +326,16 @@ mod tests {
     #[test]
     fn eval_negative() {
         assert_eval(UnaryOp(Negative, Box::new(Tick)), -TICK);
+    }
+
+    #[test]
+    fn eval_natural_log() {
+        assert_eval(UnaryOp(NaturalLog, Box::new(Tick)), TICK.ln());
+    }
+
+    #[test]
+    fn eval_base10_log() {
+        assert_eval(UnaryOp(Base10Log, Box::new(Tick)), TICK.log10());
     }
 
     #[test]
@@ -438,12 +465,37 @@ mod tests {
     }
 
     #[test]
+    fn parse_ln() {
+        let expected = ln(2);
+        assert_eq!(Expression::parse_unsimplified("ln ( 2 )"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("ln(2)"), Ok(expected));
+    }
+
+    #[test]
+    fn parse_log() {
+        let expected = log(2);
+        assert_eq!(Expression::parse_unsimplified("log ( 2)"), Ok(expected.clone()));
+        assert_eq!(Expression::parse_unsimplified("log(2)"), Ok(expected));
+    }
+
+    #[test]
+    fn parse_log_requires_parens() {
+        assert!(Expression::parse_unsimplified("ln 2").is_err());
+        assert!(Expression::parse_unsimplified("ln2").is_err());
+        assert!(Expression::parse_unsimplified("log 2").is_err());
+        assert!(Expression::parse_unsimplified("log2").is_err());
+    }
+
+    #[test]
     fn parse_multiple_unary() {
         assert_eq!(Expression::parse_unsimplified("-+-2"), Ok(neg(pos(neg(2)))));
         assert_eq!(
             Expression::parse_unsimplified("--1+-+-2"),
             Ok(add(neg(neg(1)), neg(pos(neg(2))))),
         );
+
+        assert_eq!(Expression::parse_unsimplified("-ln(-2)"), Ok(neg(ln(neg(2)))));
+        assert_eq!(Expression::parse_unsimplified("-log(-ln(-2))"), Ok(neg(log(neg(ln(neg(2)))))));
     }
 
     #[test]
@@ -463,10 +515,11 @@ mod tests {
         // (((-1) + ((2*3)/(total_mass^4))) - ((+tick)*(-1))) + ((2^(-9))*5)
         assert_eq!(
             Expression::parse_unsimplified("-1+2*3/total_mass^4-+tick*-1+2^-9*5"),
-            Ok(expected.clone()),
+            Ok(expected),
         );
-    }
 
+        assert_eq!(Expression::parse_unsimplified("-ln(2)^3"), Ok(exp(neg(ln(2)), 3)));
+    }
 
     #[test]
     fn parse_parens() {
@@ -494,6 +547,7 @@ mod tests {
     #[test]
     fn parse_unmatched() {
         assert!(Expression::parse_unsimplified("1+2*(3+4").is_err());
+        assert!(Expression::parse_unsimplified("1+2*ln(3+4").is_err());
     }
 
     #[test]
@@ -546,6 +600,16 @@ mod tests {
     }
 
     #[test]
+    fn display_unary_ln() {
+        assert_display(ln(39.625), "ln(39.625)");
+    }
+
+    #[test]
+    fn display_unary_log() {
+        assert_display(log(39.625), "log(39.625)");
+    }
+
+    #[test]
     fn display_add() {
         assert_display(add(8, Tick), "8 + tick");
     }
@@ -588,6 +652,11 @@ mod tests {
         assert_display(exp(MassCount, exp(Tick, 1)), "mass_count ^ (tick ^ 1)");
     }
 
+    #[test]
+    fn display_precedence_with_unary() {
+        assert_display(mul(add(neg(3), log(4)), ln(add(Tick, 1))), "(-3 + log(4)) * ln(tick + 1)");
+    }
+
     fn assert_display(expr: Expression, expected: &str) {
         assert_eq!(format!("{}", expr), expected);
     }
@@ -620,5 +689,11 @@ mod tests {
     }
     pub(super) fn pos<E: Into<Expression>>(val: E) -> Expression {
         UnaryOp(Positive, Box::new(val.into()))
+    }
+    pub(super) fn ln<E: Into<Expression>>(val: E) -> Expression {
+        UnaryOp(NaturalLog, Box::new(val.into()))
+    }
+    pub(super) fn log<E: Into<Expression>>(val: E) -> Expression {
+        UnaryOp(Base10Log, Box::new(val.into()))
     }
 }

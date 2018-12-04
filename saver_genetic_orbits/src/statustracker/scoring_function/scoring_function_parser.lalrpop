@@ -37,6 +37,7 @@ PowerTier: Expression = BinaryOpTier<PowerOperator, UnaryTier>;
 
 UnaryTier: Expression = {
     <op:UnaryOperator> <val:UnaryTier> => Expression::UnaryOp(op, Box::new(val)),
+    <op:LogOperator> "(" <val:Expression> ")" => Expression::UnaryOp(op, Box::new(val)),
     Term,
 };
 
@@ -73,4 +74,9 @@ PowerOperator: BinaryOperator = {
 UnaryOperator: UnaryOperator = {
     "+" => UnaryOperator::Positive,
     "-" => UnaryOperator::Negative,
+};
+
+LogOperator: UnaryOperator = {
+    r"(?i)ln" => UnaryOperator::NaturalLog,
+    r"(?i)log" => UnaryOperator::Base10Log,
 };
