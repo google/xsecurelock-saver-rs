@@ -189,11 +189,14 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
         match storage.get_nth_scenario_by_score(picked_scenario) {
             Ok(Some(scenario)) => {
                 info!(
-                    "Mutating Scenario {} (parent: {:?}, family: {}, generation: {})",
+                    "Mutating Scenario {} (parent: {:?}, family: {}, generation: {}, score: {}, \
+                    planets: {})",
                     scenario.id,
                     scenario.parent,
                     scenario.family,
                     scenario.generation,
+                    scenario.score,
+                    scenario.world.planets.len(),
                 );
                 Some(scenario)
             },
