@@ -39,4 +39,8 @@ pub trait Storage {
     /// Gets the nth scenario, in order of score (descending, so lower indexes are higher scoring
     /// scenarios). May return None if the index is outside the number of scenarios.
     fn get_nth_scenario_by_score(&mut self, index: u64) -> Result<Option<Scenario>, Box<Error>>;
+
+    /// Removes the bottom scoring scenarios, keeping up to number_to_keep top scoring scenarios.
+    /// Returns the number of scenarios pruned.
+    fn keep_top_scenarios_by_score(&mut self, number_to_keep: u64) -> Result<u64, Box<Error>>;
 }
