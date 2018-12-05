@@ -143,7 +143,13 @@ impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sy
             info!("Storing scored world");
             let world = mem::replace(&mut world_track.world, World::default());
             let parent = mem::replace(&mut world_track.parent, None);
-            let score = mem::replace(&mut world_track.cumulative_score, 0.);
+            let score = match mem::replace(&mut world_track.cumulative_score, 0.) {
+                score if score.is_nan() => {
+                    warn!("Score was NaN, replacing with -inf");
+                    ::std::f64::NEG_INFINITY
+                },
+                score => score,
+            };
             world_track.ticks_completed = 0;
             let store_result = match parent {
                 Some(parent) => storage.add_child_scenario(world, score, &parent),
