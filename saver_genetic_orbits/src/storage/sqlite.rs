@@ -20,6 +20,7 @@ use std::path::Path;
 use self::rusqlite::{
     Connection,
     Error as SqlError,
+    NO_PARAMS,
     types::{
         FromSql,
         FromSqlError,
@@ -61,7 +62,7 @@ impl SqliteStorage {
                 world TEXT NOT NULL,
                 score REAL NOT NULL
             )",
-            &[],
+            NO_PARAMS,
         )?;
         Ok(SqliteStorage { conn })
     }
@@ -80,7 +81,7 @@ impl Storage for SqliteStorage {
         let inserted = txn.execute(
             "INSERT INTO scenario (family, parent, generation, world, score)
                 VALUES (?1, ?2, ?3, ?4, ?5)",
-            &[&-1i64, &None::<i64>, &0i64, &world, &score],
+            &[&-1i64 as &ToSql, &None::<i64>, &0i64, &world, &score],
         )?;
         if inserted != 1 {
             return Err(format!("Expected to insert 1 row but had {} row changes", inserted).into());
@@ -112,7 +113,7 @@ impl Storage for SqliteStorage {
             "INSERT INTO scenario (family, parent, generation, world, score)
                 VALUES (?1, ?2, ?3, ?4, ?5)",
             &[
-                &SqlWrappingU64(parent.family),
+                &SqlWrappingU64(parent.family) as &ToSql,
                 &Some(SqlWrappingU64(parent.id)),
                 &SqlBoundedU64(generation),
                 &world,
@@ -136,7 +137,7 @@ impl Storage for SqliteStorage {
     fn num_scenarios(&mut self) -> Result<u64, Box<Error>> {
         self.conn
             .query_row_and_then(
-                "SELECT COUNT(*) FROM scenario", &[],
+                "SELECT COUNT(*) FROM scenario", NO_PARAMS,
                 |row| Ok(row.get_checked::<_, SqlBoundedU64>(0)?.0),
             )
     }
@@ -165,6 +166,23 @@ impl Storage for SqliteStorage {
             Err(SqlError::QueryReturnedNoRows) => Ok(None),
             Err(any_other_error) => Err(any_other_error.into()),
         }
+    }
+
+    fn keep_top_scenarios_by_score(&mut self, number_to_keep: u64) -> Result<u64, Box<Error>> {
+        Ok(
+            self.conn.execute(
+                "DELETE
+                    FROM scenario
+                    WHERE id NOT IN (
+                        SELECT id
+                        FROM scenario
+                        ORDER BY score DESC,
+                                 id ASC
+                        LIMIT ?
+                    )",
+                &[&SqlBoundedU64(number_to_keep)],
+            )? as u64
+        )
     }
 }
 
@@ -345,10 +363,12 @@ mod tests {
                     "INSERT INTO scenario (family, parent, generation, world, score)
                         VALUES (?1, ?2, ?3, ?4, ?5)",
                 ).unwrap();
-            add_row.execute(&[&36i64, &Some(54i64), &10i64, &world1, &90f64]).unwrap();
-            add_row.execute(&[&580i64, &Some(908i64), &5i64, &world2, &763f64]).unwrap();
-            add_row.execute(&[&170i64, &None::<i64>, &32i64, &world3, &66f64]).unwrap();
-            add_row.execute(&[&80i64, &Some(6i64), &15i64, &world2, &90f64]).unwrap();
+            add_row.execute::<&[&ToSql]>(&[&36i64, &Some(54i64), &10i64, &world1, &90f64]).unwrap();
+            add_row.execute::<&[&ToSql]>(&[&580i64, &Some(908i64), &5i64, &world2, &763f64])
+                .unwrap();
+            add_row.execute::<&[&ToSql]>(&[&170i64, &None::<i64>, &32i64, &world3, &66f64])
+                .unwrap();
+            add_row.execute::<&[&ToSql]>(&[&80i64, &Some(6i64), &15i64, &world2, &90f64]).unwrap();
         }
 
         assert_eq!(storage.num_scenarios().unwrap(), 4);
@@ -380,10 +400,12 @@ mod tests {
                     "INSERT INTO scenario (family, parent, generation, world, score)
                         VALUES (?1, ?2, ?3, ?4, ?5)",
                 ).unwrap();
-            add_row.execute(&[&36i64, &Some(54i64), &10i64, &world1, &90f64]).unwrap();
-            add_row.execute(&[&580i64, &Some(908i64), &5i64, &world2, &763f64]).unwrap();
-            add_row.execute(&[&170i64, &None::<i64>, &32i64, &world3, &66f64]).unwrap();
-            add_row.execute(&[&80i64, &Some(6i64), &15i64, &world2, &90f64]).unwrap();
+            add_row.execute::<&[&ToSql]>(&[&36i64, &Some(54i64), &10i64, &world1, &90f64]).unwrap();
+            add_row.execute::<&[&ToSql]>(&[&580i64, &Some(908i64), &5i64, &world2, &763f64])
+                .unwrap();
+            add_row.execute::<&[&ToSql]>(&[&170i64, &None::<i64>, &32i64, &world3, &66f64])
+                .unwrap();
+            add_row.execute::<&[&ToSql]>(&[&80i64, &Some(6i64), &15i64, &world2, &90f64]).unwrap();
         }
 
         let scenario = storage.get_nth_scenario_by_score(0).unwrap().unwrap();
@@ -414,6 +436,98 @@ mod tests {
         assert_eq!(scenario.world, world3);
         assert_eq!(scenario.score, 66.);
 
+        assert!(storage.get_nth_scenario_by_score(4).unwrap().is_none());
+    }
+
+    #[test]
+    fn prune_bottom_scenarios() {
+        let mut storage = SqliteStorage::open_in_memory().unwrap();
+        let world1 = World {
+            planets: vec![Planet {
+                position: Vector::new(0., 0.),
+                velocity: Vector::new(0., 0.),
+                mass: 1.,
+            }],
+        };
+        let world2 = World { planets: vec![] };
+        let world3 = World {
+            planets: vec![Planet {
+                position: Vector::new(80., 0.),
+                velocity: Vector::new(25., 30.),
+                mass: 15.,
+            }],
+        };
+
+        {
+            let mut add_row = storage
+                .conn
+                .prepare(
+                    "INSERT INTO scenario (family, parent, generation, world, score)
+                        VALUES (?1, ?2, ?3, ?4, ?5)",
+                ).unwrap();
+            add_row.execute::<&[&ToSql]>(&[&36i64, &Some(54i64), &10i64, &world1, &90f64]).unwrap();
+            add_row.execute::<&[&ToSql]>(&[&580i64, &Some(908i64), &5i64, &world2, &763f64])
+                .unwrap();
+            add_row.execute::<&[&ToSql]>(&[&170i64, &None::<i64>, &32i64, &world3, &66f64])
+                .unwrap();
+            add_row.execute::<&[&ToSql]>(&[&80i64, &Some(6i64), &15i64, &world2, &90f64]).unwrap();
+        }
+
+        let scenario = storage.get_nth_scenario_by_score(0).unwrap().unwrap();
+        assert_eq!(scenario.family, 580);
+        assert_eq!(scenario.parent, Some(908));
+        assert_eq!(scenario.generation, 5);
+        assert_eq!(scenario.world, world2);
+        assert_eq!(scenario.score, 763.);
+
+        let scenario = storage.get_nth_scenario_by_score(1).unwrap().unwrap();
+        assert_eq!(scenario.family, 36);
+        assert_eq!(scenario.parent, Some(54));
+        assert_eq!(scenario.generation, 10);
+        assert_eq!(scenario.world, world1);
+        assert_eq!(scenario.score, 90.);
+
+        let scenario = storage.get_nth_scenario_by_score(2).unwrap().unwrap();
+        assert_eq!(scenario.family, 80);
+        assert_eq!(scenario.parent, Some(6));
+        assert_eq!(scenario.generation, 15);
+        assert_eq!(scenario.world, world2);
+        assert_eq!(scenario.score, 90.);
+
+        let scenario = storage.get_nth_scenario_by_score(3).unwrap().unwrap();
+        assert_eq!(scenario.family, 170);
+        assert_eq!(scenario.parent, None);
+        assert_eq!(scenario.generation, 32);
+        assert_eq!(scenario.world, world3);
+        assert_eq!(scenario.score, 66.);
+
+        assert!(storage.get_nth_scenario_by_score(4).unwrap().is_none());
+
+
+        assert_eq!(storage.keep_top_scenarios_by_score(3).unwrap(), 1);
+
+        let scenario = storage.get_nth_scenario_by_score(0).unwrap().unwrap();
+        assert_eq!(scenario.family, 580);
+        assert_eq!(scenario.parent, Some(908));
+        assert_eq!(scenario.generation, 5);
+        assert_eq!(scenario.world, world2);
+        assert_eq!(scenario.score, 763.);
+
+        let scenario = storage.get_nth_scenario_by_score(1).unwrap().unwrap();
+        assert_eq!(scenario.family, 36);
+        assert_eq!(scenario.parent, Some(54));
+        assert_eq!(scenario.generation, 10);
+        assert_eq!(scenario.world, world1);
+        assert_eq!(scenario.score, 90.);
+
+        let scenario = storage.get_nth_scenario_by_score(2).unwrap().unwrap();
+        assert_eq!(scenario.family, 80);
+        assert_eq!(scenario.parent, Some(6));
+        assert_eq!(scenario.generation, 15);
+        assert_eq!(scenario.world, world2);
+        assert_eq!(scenario.score, 90.);
+
+        assert!(storage.get_nth_scenario_by_score(3).unwrap().is_none());
         assert!(storage.get_nth_scenario_by_score(4).unwrap().is_none());
     }
 }
