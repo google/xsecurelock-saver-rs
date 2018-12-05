@@ -171,10 +171,6 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
     /// Picks a scenario to mutate or None if a new scenario should be generated.
     fn pick_scenario(&mut self, storage: &mut T, config: &GeneratorConfig) -> Option<Scenario> {
         let num_scenarios = match storage.num_scenarios() {
-            Ok(ns) if ns < 0 => {
-                error!("Unexpected negative number of scenarios: {}", ns);
-                return None;
-            },
             Ok(ns) if ns == 0 => {
                 info!("No existing scenarios to mutate, generating new one by default");
                 return None;
@@ -215,18 +211,18 @@ impl<T: Storage, R: Rng> WorldGenerator<T, R> {
         }
     }
     
-    /// Selects a random index from the number of scenarios. The selected index may be out of range.
-    /// Uses an exponential distribution where the probability of choosing an out of range index (and
-    /// thus starting a new scenario) is 5%.
-    fn select_index(&mut self, num_items: i64, config: &GeneratorConfig) -> i64 {
+    /// Selects a random index from the number of scenarios. The selected index may be out of
+    /// range.  Uses an exponential distribution where the probability of choosing an out of range
+    /// index (and thus starting a new scenario) is given by the config.
+    fn select_index(&mut self, num_items: u64, config: &GeneratorConfig) -> u64 {
         assert!(num_items > 0);
         // The CDF of the exponential distribution is f(x) = 1-e^(-lx). In order to have
         // P probability of getting a value in-range, we want to choose l such that 
         // f(num-scenarios) = P. Therefore we solve for l: 
         // l = -ln(1 - P) / num-scenarios
-        let lambda = -(config.create_new_scenario_probability.ln()) / (num_items as f64 + 1.);
+        let lambda = -(config.create_new_scenario_probability.ln()) / num_items as f64;
         let dist = Exp::new(lambda);
-        dist.sample(&mut self.rng) as i64
+        dist.sample(&mut self.rng) as u64
     }
 }
 

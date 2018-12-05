@@ -92,8 +92,8 @@ impl Storage for SqliteStorage {
         }
         txn.commit()?;
         Ok(Scenario {
-            id,
-            family: id,
+            id: id as u64,
+            family: id as u64,
             parent: None,
             generation: 0,
             world,
@@ -111,12 +111,18 @@ impl Storage for SqliteStorage {
         let inserted = self.conn.execute(
             "INSERT INTO scenario (family, parent, generation, world, score)
                 VALUES (?1, ?2, ?3, ?4, ?5)",
-            &[&parent.family, &Some(parent.id), &generation, &world, &score],
+            &[
+                &SqlWrappingU64(parent.family),
+                &Some(SqlWrappingU64(parent.id)),
+                &SqlBoundedU64(generation),
+                &world,
+                &score
+            ],
         )?;
         if inserted != 1 {
             return Err(format!("Expected to insert 1 row but had {} row changes", inserted).into());
         }
-        let id = self.conn.last_insert_rowid();
+        let id = self.conn.last_insert_rowid() as u64;
         Ok(Scenario {
             id,
             family: parent.family,
@@ -127,35 +133,82 @@ impl Storage for SqliteStorage {
         })
     }
 
-    fn num_scenarios(&mut self) -> Result<i64, Box<Error>> {
+    fn num_scenarios(&mut self) -> Result<u64, Box<Error>> {
         self.conn
-            .query_row("SELECT COUNT(*) FROM scenario", &[], |row| row.get(0))
-            .map_err(|err| err.into())
+            .query_row_and_then(
+                "SELECT COUNT(*) FROM scenario", &[],
+                |row| Ok(row.get_checked::<_, SqlBoundedU64>(0)?.0),
+            )
     }
 
-    fn get_nth_scenario_by_score(&mut self, index: i64) -> Result<Option<Scenario>, Box<Error>> {
+    fn get_nth_scenario_by_score(&mut self, index: u64) -> Result<Option<Scenario>, Box<Error>> {
         let query_result = self.conn
-            .query_row(
+            .query_row_and_then(
                 "SELECT id, family, parent, generation, world, score
                     FROM scenario
                     ORDER BY score DESC,
                              id ASC
                     LIMIT 1
                     OFFSET ?",
-                &[&index],
-                |row| Scenario {
-                    id: row.get(0),
-                    family: row.get(1),
-                    parent: row.get(2),
-                    generation: row.get(3),
-                    world: row.get(4),
-                    score: row.get(5),
-                },
+                &[&SqlBoundedU64(index)],
+                |row| Ok(Scenario {
+                    id: row.get_checked::<_, SqlWrappingU64>(0)?.0,
+                    family: row.get_checked::<_, SqlWrappingU64>(1)?.0,
+                    parent: row.get_checked::<_, Option<SqlWrappingU64>>(2)?.map(|v| v.0),
+                    generation: row.get_checked::<_, SqlBoundedU64>(3)?.0,
+                    world: row.get_checked(4)?,
+                    score: row.get_checked(5)?,
+                }),
             );
         match query_result {
             Ok(scenario) => Ok(Some(scenario)),
             Err(SqlError::QueryReturnedNoRows) => Ok(None),
             Err(any_other_error) => Err(any_other_error.into()),
+        }
+    }
+}
+
+/// Struct for serializing u64 in Sql, wrapping out of range i64 values.
+struct SqlWrappingU64(u64);
+
+impl ToSql for SqlWrappingU64 {
+    fn to_sql(&self) -> Result<ToSqlOutput, SqlError> {
+        Ok(ToSqlOutput::Owned(SqlValue::Integer(self.0 as i64)))
+    }
+}
+
+impl FromSql for SqlWrappingU64 {
+    fn column_result(value: SqlValueRef) -> Result<Self, FromSqlError> {
+        match value {
+            SqlValueRef::Integer(value) => Ok(SqlWrappingU64(value as u64)),
+            _ => Err(FromSqlError::InvalidType),
+        }
+    }
+}
+
+/// Struct for serializing u64 in Sql, clamping at bounds.
+struct SqlBoundedU64(u64);
+
+impl ToSql for SqlBoundedU64 {
+    fn to_sql(&self) -> Result<ToSqlOutput, SqlError> {
+        if self.0 <= i64::max_value() as u64 {
+            Ok(ToSqlOutput::Owned(SqlValue::Integer(self.0 as i64)))
+        } else {
+            Err(SqlError::ToSqlConversionFailure(
+                format!(
+                    "Value {} is too large for SQLite, max is {}", self.0, i64::max_value(),
+                ).into(),
+            ))
+        }
+    }
+}
+
+impl FromSql for SqlBoundedU64 {
+    fn column_result(value: SqlValueRef) -> Result<Self, FromSqlError> {
+        match value {
+            SqlValueRef::Integer(value) if value >= 0 => Ok(SqlBoundedU64(value as u64)),
+            SqlValueRef::Integer(out_of_range) => Err(FromSqlError::OutOfRange(out_of_range)),
+            _ => Err(FromSqlError::InvalidType),
         }
     }
 }
@@ -214,10 +267,10 @@ mod tests {
                 "SELECT id, family, parent, generation, world, score
                     FROM scenario
                     WHERE id = ?1",
-                &[&scenario.id],
+                &[&(scenario.id as i64)],
                 |row| (row.get(0), row.get(1), row.get(2), row.get(3), row.get(4), row.get(5)),
             ).unwrap();
-        assert_eq!(values, (scenario.id, scenario.id, None, 0, world, 54.));
+        assert_eq!(values, (scenario.id as i64, scenario.id as i64, None, 0i64, world, 54.));
     }
 
     #[test]
@@ -249,12 +302,13 @@ mod tests {
             "SELECT id, family, parent, generation, world, score
                 FROM scenario
                 WHERE id = ?1",
-            &[&scenario.id],
+            &[&(scenario.id as i64)],
             |row| (row.get(0), row.get(1), row.get(2), row.get(3), row.get(4), row.get(5)))
             .unwrap();
         assert_eq!(
             values,
-            (scenario.id, parent.family, Some(parent.id), parent.generation + 1, world, 987.),
+            (scenario.id as i64,  parent.family as i64, Some(parent.id as i64),
+            (parent.generation + 1) as i64, world, 987.),
         );
 
     }

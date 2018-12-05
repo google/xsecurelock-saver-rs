@@ -15,11 +15,25 @@
 //! Contains configuration structs for the database.
 
 /// Configuration parameters for the Sqlite Database.
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct DatabaseConfig {
     /// The path to the SqliteDatabase to use. If set, the parent directory must exist and the
     /// location must be writable. Saver will never fall back to an in-memory database if this is
     /// set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub database_path: Option<String>,
+
+    /// Sets the cap for the number of scenarios to keep in the database. Set to None for
+    /// unlimited. Defaults to 1,000,000.
+    pub max_scenarios_to_keep: Option<u64>,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        DatabaseConfig {
+            database_path: None,
+            max_scenarios_to_keep: Some(1000000),
+        }
+    }
 }
