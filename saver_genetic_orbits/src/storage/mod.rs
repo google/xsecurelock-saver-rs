@@ -34,9 +34,9 @@ pub trait Storage {
     ) -> Result<Scenario, Box<Error>>;
 
     /// Returns the number of scenarios available.
-    fn num_scenarios(&mut self) -> Result<i64, Box<Error>>;
+    fn num_scenarios(&mut self) -> Result<u64, Box<Error>>;
 
     /// Gets the nth scenario, in order of score (descending, so lower indexes are higher scoring
     /// scenarios). May return None if the index is outside the number of scenarios.
-    fn get_nth_scenario_by_score(&mut self, index: i64) -> Result<Option<Scenario>, Box<Error>>;
+    fn get_nth_scenario_by_score(&mut self, index: u64) -> Result<Option<Scenario>, Box<Error>>;
 }

@@ -20,14 +20,14 @@ use xsecurelock_saver::engine::components::physics::Vector;
 #[derive(Debug)]
 pub struct Scenario {
     /// The name of this scenario.
-    pub id: i64,
+    pub id: u64,
     /// The family of this scenario. This is the ID of the root of its family tree.
-    pub family: i64,
+    pub family: u64,
     /// Optional parent of this scenario. The parent scenario may have been pruned. This is None if
     /// the scenario is a root, but is retained even if the parent is pruned.
-    pub parent: Option<i64>,
+    pub parent: Option<u64>,
     /// The generation number of this scenario. Useful in case any of the parents have been pruned.
-    pub generation: i64,
+    pub generation: u64,
     /// The state of the world at the start of the scenario.
     pub world: World,
     /// The score that this world earned when tested.
