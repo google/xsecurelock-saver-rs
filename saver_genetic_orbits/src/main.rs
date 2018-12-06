@@ -74,24 +74,28 @@ use worldgenerator::WorldGenerator;
 mod collision;
 mod config;
 mod model;
+mod pruner;
 mod storage;
 mod statustracker;
+mod timer;
 mod worldgenerator;
 
 fn main() {
     simple_logger::init().unwrap();
 
     let config = get_config();
-    let storage = match &config.database.database_path {
-        Some(path) => {
-            info!("using database {}", path);
-            SqliteStorage::open(path).unwrap()
-        },
-        None => open_default_storage(),
-    };
-    
-    let GeneticOrbitsConfig { scoring, generator, .. } = config;
 
+    let GeneticOrbitsConfig { database, generator, scoring } = config;
+
+    let stop_pruning = if let Some(max_scenarios_to_keep) = database.max_scenarios_to_keep {
+        let storage = open_storage(database.database_path.as_ref().map(|s| &**s));
+        let prune_interval = ::std::time::Duration::from_secs(database.prune_interval_seconds);
+        Some(pruner::prune_scenarios(prune_interval, max_scenarios_to_keep, storage))
+    } else {
+        None
+    };
+
+    let storage = open_storage(database.database_path.as_ref().map(|s| &**s));
 
     EngineBuilder::new()
         .with_initial_sceneloader(WorldGenerator::<SqliteStorage>::default())
@@ -129,11 +133,26 @@ fn main() {
             SympleticEulerVelocityStep, "integrate-velocities", &["detect-collisions"])
         .build()
         .run();
+
+    if let Some(stop_pruning) = stop_pruning {
+        stop_pruning.shutdown();
+    }
 }
 
 /// The screensaver folder name, used both for saving the database in the user data directory and
 /// for looking for configs in the 
 const SAVER_DIR: &'static str = "xsecurelock-saver-genetic-orbits";
+
+/// Checks for the config path and either tries to open it or opens the default location.
+fn open_storage(config_path: Option<&str>) -> SqliteStorage {
+    match config_path {
+        Some(path) => {
+            info!("using database {}", path);
+            SqliteStorage::open(path).unwrap()
+        },
+        None => open_default_storage(),
+    }
+}
 
 /// Open SqliteStorage somewhere, either in the user data dir or in memory.
 fn open_default_storage() -> SqliteStorage {
@@ -155,7 +174,7 @@ fn open_default_storage() -> SqliteStorage {
         }
     }
     info!("using in-memory database");
-    SqliteStorage::open_in_memory().unwrap()
+    SqliteStorage::open_in_memory_named("default").unwrap()
 }
 
 /// Load the config from the user config directory.
