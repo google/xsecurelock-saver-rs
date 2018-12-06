@@ -69,6 +69,15 @@ impl SqliteStorage {
             )",
             NO_PARAMS,
         )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS scenario_score_index
+                ON scenario (
+                    score DESC,
+                    id ASC
+                )
+            ",
+            NO_PARAMS,
+        )?;
         Ok(SqliteStorage { conn })
     }
 }
@@ -265,6 +274,20 @@ mod tests {
     #[test]
     fn test_open_in_memory() {
         SqliteStorage::open_in_memory().unwrap();
+    }
+
+    #[test]
+    fn test_creates_index() {
+        let storage = SqliteStorage::open_in_memory().unwrap();
+        let (idxname, unique): (String, bool) = storage
+            .conn
+            .query_row(
+                "PRAGMA INDEX_LIST('scenario')",
+                NO_PARAMS,
+                |row| (row.get(1), row.get(2)),
+            ).unwrap();
+        assert_eq!(idxname, "scenario_score_index");
+        assert!(!unique);
     }
 
     #[test]
