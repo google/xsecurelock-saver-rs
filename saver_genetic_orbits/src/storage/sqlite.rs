@@ -52,6 +52,11 @@ impl SqliteStorage {
         Connection::open_in_memory().and_then(SqliteStorage::from_conn)
     }
 
+    pub fn open_in_memory_named<N: AsRef<str>>(name: N) -> Result<SqliteStorage, SqlError> {
+        Connection::open(&format!("file:{}?mode=memory&cache=shared", name.as_ref()))
+            .and_then(SqliteStorage::from_conn)
+    }
+
     fn from_conn(conn: Connection) -> Result<SqliteStorage, SqlError> {
         conn.execute(
             "CREATE TABLE IF NOT EXISTS scenario (
@@ -260,6 +265,42 @@ mod tests {
     #[test]
     fn test_open_in_memory() {
         SqliteStorage::open_in_memory().unwrap();
+    }
+
+    #[test]
+    fn test_open_in_memory_not_shared() {
+        let mut first = SqliteStorage::open_in_memory().unwrap();
+        let mut second = SqliteStorage::open_in_memory().unwrap();
+
+        assert_eq!(first.num_scenarios().unwrap(), 0);
+        assert_eq!(second.num_scenarios().unwrap(), 0);
+        first.add_root_scenario(World { planets: vec![] }, 0.).unwrap();
+        assert_eq!(first.num_scenarios().unwrap(), 1);
+        assert_eq!(second.num_scenarios().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_open_in_memory_named_shared() {
+        let mut first = SqliteStorage::open_in_memory_named("common").unwrap();
+        let mut second = SqliteStorage::open_in_memory_named("common").unwrap();
+
+        assert_eq!(first.num_scenarios().unwrap(), 0);
+        assert_eq!(second.num_scenarios().unwrap(), 0);
+        first.add_root_scenario(World { planets: vec![] }, 0.).unwrap();
+        assert_eq!(first.num_scenarios().unwrap(), 1);
+        assert_eq!(second.num_scenarios().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_open_in_memory_named_not_shared() {
+        let mut first = SqliteStorage::open_in_memory_named("thing1").unwrap();
+        let mut second = SqliteStorage::open_in_memory_named("thing2").unwrap();
+
+        assert_eq!(first.num_scenarios().unwrap(), 0);
+        assert_eq!(second.num_scenarios().unwrap(), 0);
+        first.add_root_scenario(World { planets: vec![] }, 0.).unwrap();
+        assert_eq!(first.num_scenarios().unwrap(), 1);
+        assert_eq!(second.num_scenarios().unwrap(), 0);
     }
 
     #[test]

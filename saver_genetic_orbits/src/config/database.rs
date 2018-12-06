@@ -27,6 +27,11 @@ pub struct DatabaseConfig {
     /// Sets the cap for the number of scenarios to keep in the database. Set to None for
     /// unlimited. Defaults to 1,000,000.
     pub max_scenarios_to_keep: Option<u64>,
+
+    /// How often (in seconds) to prune excess scenarios while running normally. Defaults to every
+    /// 20 minutes (1200 seconds). Regardless of what this is set to, it will always prune on
+    /// shutdown unless max_scenarios_to_keep is unset.
+    pub prune_interval_seconds: u64,
 }
 
 impl Default for DatabaseConfig {
@@ -34,6 +39,7 @@ impl Default for DatabaseConfig {
         DatabaseConfig {
             database_path: None,
             max_scenarios_to_keep: Some(1000000),
+            prune_interval_seconds: 1200,
         }
     }
 }
