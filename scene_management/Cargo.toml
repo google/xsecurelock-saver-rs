@@ -1,0 +1,9 @@
+[package]
+name = "scene_management"
+version = "0.1.0"
+authors = ["Zachary Stewart <zstewart@google.com>"]
+edition = "2018"
+
+[dependencies]
+shred = "0.7"
+specs = "0.11"
