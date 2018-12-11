@@ -28,13 +28,8 @@ use physics::components::{
     Mass,
     Position,
 };
-use xsecurelock_saver::engine::{
-    components::delete::Deleted,
-    resources::{
-        draw::View,
-        scene::SceneChange,
-    },
-};
+use scene_management::{components::Deleted, resources::SceneChange};
+use xsecurelock_saver::engine::resources::draw::View;
 
 use crate::{
     config::scoring::ScoringConfig,

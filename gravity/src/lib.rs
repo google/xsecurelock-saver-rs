@@ -33,7 +33,7 @@ use physics::components::{
     Position,
     Mass,
 };
-use xsecurelock_saver::engine::components::delete::Deleted;
+use scene_management::components::Deleted;
 
 pub struct GravitationalConstant(pub f32);
 

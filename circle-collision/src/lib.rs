@@ -34,10 +34,7 @@ use physics::{
     components::{Position, Vector, Velocity},
     resources::PhysicsDeltaTime,
 };
-use xsecurelock_saver::engine::components::{
-    delete::Deleted,
-    scene::InScene,
-};
+use scene_management::components::{Deleted, InScene};
 
 /// A collision between two entities.
 #[derive(Debug, Copy, Clone)]
