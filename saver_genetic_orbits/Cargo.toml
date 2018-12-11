@@ -4,10 +4,13 @@ version = "0.1.0"
 authors = ["Zachary Stewart <zstewart@google.com>"]
 
 [features]
+default = ["graphical"]
 debug-timing = []
+graphical = ["xsecurelock-saver"]
 
 [dependencies]
 circle-collision = { path = "../circle-collision" }
+clap = "2.32"
 dirs = "1.0"
 gravity = { path = "../gravity" }
 lalrpop-util = "0.16"
@@ -29,6 +32,7 @@ specs = "0.11"
 [dependencies.xsecurelock-saver]
 path = "../"
 features = ["engine", "serde-serialize"]
+optional = true
 
 [build-dependencies]
 lalrpop = "0.16"

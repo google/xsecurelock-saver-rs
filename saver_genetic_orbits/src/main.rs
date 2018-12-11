@@ -19,6 +19,7 @@ extern crate log;
 #[macro_use]
 extern crate lalrpop_util;
 
+extern crate clap;
 extern crate dirs;
 extern crate nalgebra;
 extern crate num_complex;
@@ -29,10 +30,11 @@ extern crate serde;
 extern crate serde_json;
 extern crate serde_yaml;
 extern crate simple_logger;
-
 extern crate specs;
+
 extern crate circle_collision;
 extern crate gravity;
+#[cfg(feature = "graphical")]
 extern crate xsecurelock_saver;
 
 use std::fs;
@@ -53,6 +55,8 @@ use circle_collision::{
     CollisionMatrix,
     LastUpdateCollisions,
 };
+
+#[cfg(feature = "graphical")]
 use xsecurelock_saver::engine::{
     EngineBuilder,
     systems::physics::{
@@ -66,9 +70,16 @@ use collision::{
     MergeCollidedPlanets,
     MergedInto,
 };
-use config::GeneticOrbitsConfig;
+use config::{
+    GeneticOrbitsConfig,
+    generator::GeneratorConfig,
+    scoring::ScoringConfig,
+};
 use statustracker::{ActiveWorld, ScoreKeeper};
-use storage::sqlite::SqliteStorage;
+use storage::{
+    Storage,
+    sqlite::SqliteStorage,
+};
 use worldgenerator::WorldGenerator;
 
 mod collision;
@@ -97,8 +108,40 @@ fn main() {
 
     let storage = open_storage(database.database_path.as_ref().map(|s| &**s));
 
+    use clap::{App, Arg};
+    let args = App::new("saver_genetic_orbits")
+        .arg(Arg::with_name("headless")
+            .long("headless")
+            .help(
+                "run in headless mode with no grpahics (no effect if not compiled with graphics \
+                enabled)"))
+        .get_matches();
+
+    run_saver(args.is_present("headless"), scoring, generator, storage);
+
+    if let Some(stop_pruning) = stop_pruning {
+        stop_pruning.shutdown();
+    }
+}
+
+/// internal saver-runner.
+fn run_saver<S: Storage + Default + Send + Sync + 'static>(
+    headless: bool, scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
+) {
+    #[cfg(feature = "graphical")] {
+        if !headless {
+            return run_saver_graphical(scoring, generator, storage);
+        }
+    }
+    run_saver_headless(scoring, generator, storage);
+}
+
+#[cfg(feature = "graphical")]
+fn run_saver_graphical<S: Storage + Default + Send + Sync + 'static>(
+    scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
+) {
     EngineBuilder::new()
-        .with_initial_sceneloader(WorldGenerator::<SqliteStorage>::default())
+        .with_initial_sceneloader(WorldGenerator::<S>::default())
         .with_resource(GravitationalConstant(1000.))
         .with_resource(LastUpdateCollisions::default())
         .with_resource({
@@ -116,13 +159,11 @@ fn main() {
         .with_component::<MergedInto>()
         .with_scene_change_sys(ClearCollisionsInvolvingSceneEntities, "", &[])
         // Run the real merge just before scoring.
-        .with_physics_update_sys(
-            MergeCollidedPlanets, "merge-collided", &[])
-        .with_physics_update_sys(
-            DeleteCollidedPlanets, "delete-collided", &["merge-collided"])
+        .with_physics_update_sys(MergeCollidedPlanets, "merge-collided", &[])
+        .with_physics_update_sys(DeleteCollidedPlanets, "delete-collided", &["merge-collided"])
         .with_physics_update_barrier()
         // Run scorekeeping before integrating.
-        .with_physics_update_sys(ScoreKeeper::<SqliteStorage>::default(), "score-keeper", &[])
+        .with_physics_update_sys(ScoreKeeper::<S>::default(), "score-keeper", &[])
         .with_physics_update_sys(GravitySystem, "apply-gravity", &[])
         // Barrier between adding forces and adding integration.
         .with_physics_update_barrier()
@@ -133,9 +174,49 @@ fn main() {
             SympleticEulerVelocityStep, "integrate-velocities", &["detect-collisions"])
         .build()
         .run();
+}
 
-    if let Some(stop_pruning) = stop_pruning {
-        stop_pruning.shutdown();
+fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
+    scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
+) {
+    use specs::{World, DispatcherBuilder};
+    let mut world = World::new();
+    world.register::<CircleCollider>();
+    world.register::<GravitySource>();
+    world.register::<GravityTarget>();
+    world.register::<MergedInto>();
+    world.add_resource(GravitationalConstant(1000.));
+    world.add_resource(LastUpdateCollisions::default());
+    world.add_resource({
+        let mut matrix = CollisionMatrix::default();
+        matrix.enable_collision(collision::planet(), collision::planet());
+        matrix
+    });
+    world.add_resource(scoring);
+    world.add_resource(generator);
+    world.add_resource(storage);
+    world.add_resource(ActiveWorld::default());
+
+    let mut dispatcher = DispatcherBuilder::new()
+        // Run the real merge just before scoring.
+        .with(MergeCollidedPlanets, "merge-collided", &[])
+        .with(DeleteCollidedPlanets, "delete-collided", &["merge-collided"])
+        .with_barrier()
+        // Run scorekeeping before integrating.
+        .with(ScoreKeeper::<S>::default(), "score-keeper", &[])
+        .with(GravitySystem, "apply-gravity", &[])
+        // Barrier between adding forces and adding integration.
+        .with_barrier()
+        .with(SympleticEulerForceStep, "integrate-forces", &[])
+        .with(
+            BruteForceCollisionDetector, "detect-collisions", &["integrate-forces"])
+        .with(
+            SympleticEulerVelocityStep, "integrate-velocities", &["detect-collisions"])
+        .build();
+
+    loop {
+        dispatcher.dispatch(&mut world.res);
+        world.maintain();
     }
 }
 
