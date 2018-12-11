@@ -266,10 +266,10 @@ impl FromSql for World {
 
 #[cfg(test)]
 mod tests {
-    use xsecurelock_saver::engine::components::physics::Vector;
+    use physics::components::Vector;
 
     use super::*;
-    use model::Planet;
+    use crate::model::Planet;
 
     #[test]
     fn test_open_in_memory() {
