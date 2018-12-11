@@ -31,6 +31,13 @@ use physics::{
     resources::{PhysicsDeltaTime, PhysicsElapsed},
     systems::{ClearForceAccumulators, SetupNextPhysicsPosition},
 };
+use scene_management::{
+    self,
+    resources::{SceneChange, SceneLoader},
+    SceneChangeHandler,
+    SceneChangeHandlerBuilder,
+    systems::DeleteSystem,
+};
 
 use self::{
     resources::{
@@ -39,24 +46,18 @@ use self::{
             DrawLayers,
             View,
         },
-        scene::{
-            SceneLoader,
-            SceneChange,
-        },
         time::{
             DeltaTime,
             Elapsed,
         },
     },
     systems::{
-        delete::DeleteSystem,
         draw::{
             DrawLayersUpdater,
             SyncDrawShapesSystem,
             DrawDrawShapesSystem,
             SfShape,
         },
-        scene::ClearCurrentScene,
         specialized::{
             SpecializedSystem,
             SpecializedSystemObject,
@@ -72,7 +73,7 @@ pub mod systems;
 pub struct EngineBuilder<'a, 'b> {
     world: ::specs::World,
     update_dispatcher: ::specs::DispatcherBuilder<'a, 'b>,
-    scene_change_dispatcher: ::specs::DispatcherBuilder<'a, 'b>,
+    scene_change_handler: SceneChangeHandlerBuilder<'a, 'b>,
     physics_update_dispatcher: ::specs::DispatcherBuilder<'a, 'b>,
     max_physics_updates: usize
 }
@@ -84,14 +85,15 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
             world: {
                 let mut world = ::specs::World::new();
                 physics::register(&mut world);
+                scene_management::register(&mut world);
                 components::register_all(&mut world);
                 resources::add_default_resources(&mut world);
                 world
             },
             update_dispatcher: ::specs::DispatcherBuilder::new()
                 .with_pool(Arc::clone(&thread_pool)),
-            scene_change_dispatcher: ::specs::DispatcherBuilder::new()
-                .with_pool(Arc::clone(&thread_pool)),
+            scene_change_handler: SceneChangeHandlerBuilder::new()
+                .with_threadpool(Arc::clone(&thread_pool)),
             physics_update_dispatcher: ::specs::DispatcherBuilder::new()
                 .with_pool(thread_pool)
                 .with(SetupNextPhysicsPosition, "", &[])
@@ -142,14 +144,16 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
     pub fn add_scene_change_sys<S>(&mut self, sys: S, name: &str, dep: &[&str]) 
         where S: for<'c> System<'c> + Send + 'a
     {
-        self.scene_change_dispatcher.add(sys, name, dep);
+        self.scene_change_handler.add_pre_load_sys(sys, name, dep);
     }
 
     /// Add a barrier to the scene_change system.
     pub fn with_scene_change_barrier(mut self) -> Self { self.add_scene_change_barrier(); self }
 
     /// Add a barrier to the scene_change system.
-    pub fn add_scene_change_barrier(&mut self) { self.scene_change_dispatcher.add_barrier(); }
+    pub fn add_scene_change_barrier(&mut self) {
+        self.scene_change_handler.add_pre_load_barrier();
+    }
 
     /// Add a system to run on physics updates. Arguments are the same as for 
     /// `DispatcherBuilder.with`. Dependencies can only refer to other physics update systems 
@@ -222,11 +226,7 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
                 .with(DrawLayersUpdater::default(), "", &[])
                 .with(DeleteSystem, "", &[])
                 .build(),
-            scene_change_dispatcher: self.scene_change_dispatcher
-                .with_barrier()
-                .with(DeleteSystem, "", &[])
-                .with(ClearCurrentScene, "", &[])
-                .build(),
+            scene_change_handler: self.scene_change_handler.build(),
             physics_update_dispatcher: self.physics_update_dispatcher
                 .with_barrier()
                 .with(DeleteSystem, "", &[])
@@ -254,7 +254,7 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
         }
 
         engine.update_dispatcher.setup(&mut engine.world.res);
-        engine.scene_change_dispatcher.setup(&mut engine.world.res);
+        engine.scene_change_handler.setup(&mut engine.world);
         engine.physics_update_dispatcher.setup(&mut engine.world.res);
 
         engine.sync_draw_shapes.setup_special(&mut engine.draw_shapes, &mut engine.world.res);
@@ -269,7 +269,7 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
 pub struct Engine<'a, 'b, 'tex> {
     world: ::specs::World,
     update_dispatcher: ::specs::Dispatcher<'a, 'b>,
-    scene_change_dispatcher: ::specs::Dispatcher<'a, 'b>,
+    scene_change_handler: SceneChangeHandler<'a, 'b>,
     physics_update_dispatcher: ::specs::Dispatcher<'a, 'b>,
 
     window: RenderWindow,
@@ -329,7 +329,7 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
             self.physics_update_dispatcher.dispatch(&self.world.res);
             self.world.maintain();
 
-            self.handle_scene_change();
+            self.scene_change_handler.handle_scene_change(&mut self.world);
         }
         // if we run out of iterations trying to catch up physics, we're pretty far behind -- just
         // run up the clock and let physics stutter.
@@ -354,23 +354,7 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
         self.update_dispatcher.dispatch(&self.world.res);
         self.world.maintain();
 
-        self.handle_scene_change();
-    }
-
-    /// Run the scene changer if set.
-    fn handle_scene_change(&mut self) {
-        let loader = self.world.write_resource::<SceneChange>().take_scene_changer();
-        if let Some(mut loader) = loader {
-            // Change scene as a separate step so that the maintain call is independent and spawns
-            // from the last regular update are still captured.
-            self.scene_change_dispatcher.dispatch(&self.world.res);
-
-            // maintain for scene_change_dispatcher.
-            self.world.maintain();
-
-            loader.dispatch(&mut self.world);
-            self.world.maintain();
-        }
+        self.scene_change_handler.handle_scene_change(&mut self.world);
     }
 
     /// Redraw.

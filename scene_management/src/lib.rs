@@ -37,6 +37,12 @@ pub struct SceneChangeHandlerBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> SceneChangeHandlerBuilder<'a, 'b> {
+    pub fn new() -> Self {
+        SceneChangeHandlerBuilder {
+            scene_change_dispatcher: DispatcherBuilder::new(),
+        }
+    }
+
     /// Set the threadpool to use when dispatching.
     pub fn with_threadpool(mut self, pool: Arc<ThreadPool>) -> Self {
         self.set_threadpool(pool);
@@ -92,6 +98,10 @@ pub struct SceneChangeHandler<'a, 'b> {
 }
 
 impl<'a, 'b> SceneChangeHandler<'a, 'b> {
+    pub fn setup(&mut self, world: &mut World) {
+        self.scene_change_dispatcher.setup(&mut world.res);
+    }
+
     /// Check if a scene loader is set, and if so, clean up the current scene and load the new one.
     pub fn handle_scene_change(&mut self, world: &mut World) {
         let loader = world.write_resource::<SceneChange>().take_scene_changer();

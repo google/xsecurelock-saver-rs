@@ -27,6 +27,12 @@ use specs::{
     WriteStorage,
 };
 
+use circle_collision::{
+    CircleCollider,
+    CollisionEvent,
+    CollisionLayer,
+    LastUpdateCollisions,
+};
 use physics::components::{
     ForceAccumulator,
     Mass,
@@ -35,21 +41,13 @@ use physics::components::{
     Vector,
     Velocity,
 };
-
+use scene_management::components::Deleted;
 use xsecurelock_saver::engine::components::{
-    delete::Deleted,
     draw::{
         DrawColor,
         DrawShape,
         ShapeType,
     },
-};
-
-use circle_collision::{
-    CircleCollider,
-    CollisionEvent,
-    CollisionLayer,
-    LastUpdateCollisions,
 };
 
 use crate::model::Planet;

@@ -89,42 +89,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "csfml-audio-sys"
-version = "0.4.0"
-source = "git+https://github.com/jeremyletang/rust-sfml.git#844dbd4a0bee1cdc6b90ffb542e9ff804c55a164"
-dependencies = [
- "csfml-system-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "sfml-build 0.2.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
-]
-
-[[package]]
-name = "csfml-graphics-sys"
-version = "0.4.0"
-source = "git+https://github.com/jeremyletang/rust-sfml.git#844dbd4a0bee1cdc6b90ffb542e9ff804c55a164"
-dependencies = [
- "csfml-system-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "csfml-window-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "sfml-build 0.2.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
-]
-
-[[package]]
-name = "csfml-system-sys"
-version = "0.4.0"
-source = "git+https://github.com/jeremyletang/rust-sfml.git#844dbd4a0bee1cdc6b90ffb542e9ff804c55a164"
-dependencies = [
- "sfml-build 0.2.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
-]
-
-[[package]]
-name = "csfml-window-sys"
-version = "0.4.0"
-source = "git+https://github.com/jeremyletang/rust-sfml.git#844dbd4a0bee1cdc6b90ffb542e9ff804c55a164"
-dependencies = [
- "csfml-system-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "sfml-build 0.2.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
-]
-
-[[package]]
 name = "derivative"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -180,8 +144,8 @@ version = "0.1.0"
 dependencies = [
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "physics 0.1.0",
+ "scene_management 0.1.0",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "xsecurelock-saver 0.1.0",
 ]
 
 [[package]]
@@ -303,7 +267,6 @@ name = "physics"
 version = "0.1.0"
 dependencies = [
  "nalgebra 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sfml 0.14.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
  "shred 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -386,26 +349,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "scopeguard"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "sfml"
-version = "0.14.0"
-source = "git+https://github.com/jeremyletang/rust-sfml.git#844dbd4a0bee1cdc6b90ffb542e9ff804c55a164"
+name = "scene_management"
+version = "0.1.0"
 dependencies = [
- "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "csfml-audio-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "csfml-graphics-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "csfml-system-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "csfml-window-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
+ "rayon 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "shred 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "sfml-build"
-version = "0.2.0"
-source = "git+https://github.com/jeremyletang/rust-sfml.git#844dbd4a0bee1cdc6b90ffb542e9ff804c55a164"
+name = "scopeguard"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "shred"
@@ -526,20 +481,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
-[[package]]
-name = "xsecurelock-saver"
-version = "0.1.0"
-dependencies = [
- "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "nalgebra 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "physics 0.1.0",
- "rayon 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sfml 0.14.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
- "shred 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
 [metadata]
 "checksum alga 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3dbc79e62893b72dd1277dc7630fed84054cd5f2d3aef5563553177ab0b31e83"
 "checksum approx 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e134961cbc7401a62433d62050c5b9e1fac71d29d990c35225cf15dcaa9e2d93"
@@ -553,10 +494,6 @@ dependencies = [
 "checksum crossbeam-deque 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f739f8c5363aca78cfb059edf753d8f0d36908c348f3d8d1503f03d8b75d9cf3"
 "checksum crossbeam-epoch 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "927121f5407de9956180ff5e936fe3cf4324279280001cd56b669d28ee7e9150"
 "checksum crossbeam-utils 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2760899e32a1d58d5abb31129f8fae5de75220bc2176e77ff7c627ae45c918d9"
-"checksum csfml-audio-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)" = "<none>"
-"checksum csfml-graphics-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)" = "<none>"
-"checksum csfml-system-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)" = "<none>"
-"checksum csfml-window-sys 0.4.0 (git+https://github.com/jeremyletang/rust-sfml.git)" = "<none>"
 "checksum derivative 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6073e9676dbebdddeabaeb63e3b7cefd23c86f5c41d381ee1237cc77b1079898"
 "checksum either 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3be565ca5c557d7f59e7cfcf1844f9e3033650c929c6566f511e8005f205c1d0"
 "checksum fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
@@ -589,8 +526,6 @@ dependencies = [
 "checksum rayon 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "373814f27745b2686b350dd261bfd24576a6fb0e2c5919b3a2b6005f820b0473"
 "checksum rayon-core 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b055d1e92aba6877574d8fe604a63c8b5df60f60e5982bf7ccbb1338ea527356"
 "checksum scopeguard 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "94258f53601af11e6a49f722422f6e3425c52b06245a5cf9bc09908b174f5e27"
-"checksum sfml 0.14.0 (git+https://github.com/jeremyletang/rust-sfml.git)" = "<none>"
-"checksum sfml-build 0.2.0 (git+https://github.com/jeremyletang/rust-sfml.git)" = "<none>"
 "checksum shred 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8c75ec29e8d2959ad96a1087fe4cadb926c6fc17cbae9812314fa8efe720aa2a"
 "checksum shred-derive 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "9fcf34e5e5302d3024aba7afc291f6d1ca7573ed035d3c0796976ba3f10691a1"
 "checksum shrev 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ec60ed6f60a4b3cdc2ceacf57215db3408fbd8990f66a38686a31558cd9da482"

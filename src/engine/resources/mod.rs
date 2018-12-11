@@ -13,11 +13,9 @@
 // limitations under the License.
 
 pub mod draw;
-pub mod scene;
 pub mod time;
 
 pub(crate) fn add_default_resources(world: &mut ::specs::World) {
     time::add_default_resources(world);
     draw::add_default_resources(world);
-    scene::add_default_resources(world);
 }

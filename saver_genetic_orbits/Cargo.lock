@@ -175,8 +175,8 @@ version = "0.1.0"
 dependencies = [
  "bitflags 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "physics 0.1.0",
+ "scene_management 0.1.0",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "xsecurelock-saver 0.1.0",
 ]
 
 [[package]]
@@ -420,8 +420,8 @@ version = "0.1.0"
 dependencies = [
  "bitflags 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "physics 0.1.0",
+ "scene_management 0.1.0",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "xsecurelock-saver 0.1.0",
 ]
 
 [[package]]
@@ -861,6 +861,7 @@ dependencies = [
  "rand 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "scene_management 0.1.0",
  "serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.22 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -869,6 +870,15 @@ dependencies = [
  "simple_logger 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "xsecurelock-saver 0.1.0",
+]
+
+[[package]]
+name = "scene_management"
+version = "0.1.0"
+dependencies = [
+ "rayon 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "shred 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1260,6 +1270,7 @@ dependencies = [
  "nalgebra 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "physics 0.1.0",
  "rayon 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "scene_management 0.1.0",
  "sfml 0.14.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
  "shred 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",

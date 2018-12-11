@@ -5,7 +5,7 @@ authors = ["Zachary Stewart <zstewart@google.com>"]
 edition = "2018"
 
 [features]
-engine = ["nalgebra", "rayon", "specs", "shred", "physics"]
+engine = ["nalgebra", "rayon", "specs", "shred", "physics", "scene_management"]
 serde-serialize = ["engine", "nalgebra/serde-serialize", "physics/serde-serialize"]
 
 [dependencies]
@@ -14,6 +14,7 @@ log = "0.4"
 nalgebra = { version = "0.15", optional = true }
 physics = { path = "physics", optional = true, features = ["graphical"] }
 rayon = { version = "1.0", optional = true }
+scene_management = { path = "scene_management", optional = true }
 sfml = { git = "https://github.com/jeremyletang/rust-sfml.git", branch = "master" }
 shred = { version = "0.7", optional = true }
 specs = { version = "0.11", optional = true }

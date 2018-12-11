@@ -34,6 +34,8 @@ use rand::{
     },
 };
 
+use circle_collision::CircleCollider;
+use gravity::{GravitySource, GravityTarget};
 use physics::components::{
     ForceAccumulator,
     Mass,
@@ -42,20 +44,8 @@ use physics::components::{
     Vector,
     Velocity,
 };
-use xsecurelock_saver::engine::{
-    resources::scene::SceneLoader,
-    components::{
-        draw::{
-            DrawColor,
-            DrawShape,
-            ShapeType,
-        },
-        scene::InScene,
-    },
-};
-
-use circle_collision::CircleCollider;
-use gravity::{GravitySource, GravityTarget};
+use scene_management::{resources::SceneLoader, components::InScene};
+use xsecurelock_saver::engine::components::draw::{DrawColor, DrawShape, ShapeType};
 
 use crate::{
     collision,

@@ -10,5 +10,5 @@ debug-timing = []
 [dependencies]
 bitflags = "1.0"
 physics = { path = "../physics" }
+scene_management = { path = "../scene_management" }
 specs = "0.11"
-xsecurelock-saver = { path = "../", features = ["engine"] }
