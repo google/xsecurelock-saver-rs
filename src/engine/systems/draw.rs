@@ -41,26 +41,24 @@ use specs::storage::{
     RemovedFlag,
 };
 
-use engine::{
-    components::{
-        draw::{
-            DrawColor,
-            DrawLayer,
-            DrawShape,
-            ShapeType,
-        },
-        physics::Position,
+use physics::{
+    components::Position,
+    resources::PhysicsElapsed,
+};
+
+use crate::engine::{
+    components::draw::{
+        DrawColor,
+        DrawLayer,
+        DrawShape,
+        ShapeType,
     },
     resources::{
         draw::{
             CurrentDrawLayer,
             DrawLayers,
         },
-        time,
-        time::{
-            Elapsed,
-            PhysicsElapsed,
-        },
+        time::Elapsed,
     },
     systems::specialized::SpecializedSystem,
 };
@@ -291,7 +289,7 @@ impl<'a, 'b, 'tex> SpecializedSystem<'a, &'b mut Vec<Option<SfShape<'tex>>>>
             sf_shapes[id as usize].as_mut().unwrap().apply_color(color);
         }
 
-        let factor = time::physics_interpolation_factor(&elapsed, &physics_elapsed);
+        let factor = Position::physics_interpolation_factor(elapsed.current, &physics_elapsed);
         for (entity, _, position) in (&*entities, &shapes, &positions).join() {
             let (pos, rot) = position.interpolate(factor);
             let draw_pos = Vector2f::new(pos.x, -pos.y);

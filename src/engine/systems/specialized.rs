@@ -25,9 +25,9 @@ pub trait SpecializedSystem<'a, T> {
 }
 
 pub(crate) trait SpecializedSystemObject<'a, T> {
-    fn run(&mut self, special_data: T, &'a Resources);
+    fn run(&mut self, special_data: T, res: &'a Resources);
 
-    fn setup(&mut self, special_data: T, &mut Resources);
+    fn setup(&mut self, special_data: T, res: &mut Resources);
 }
 
 impl<'a, T, S> SpecializedSystemObject<'a, T> for S

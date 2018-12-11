@@ -2,14 +2,13 @@
 name = "circle-collision"
 version = "0.1.0"
 authors = ["Zachary Stewart <zstewart@google.com>"]
+edition = "2018"
 
 [features]
 debug-timing = []
 
 [dependencies]
 bitflags = "1.0"
+physics = { path = "../physics" }
 specs = "0.11"
-
-[dependencies.xsecurelock-saver]
-path = "../"
-features = ["engine"]
+xsecurelock-saver = { path = "../", features = ["engine"] }

@@ -24,24 +24,24 @@ use specs::{
     Write,
 };
 
+use physics::components::{
+    Mass,
+    Position,
+};
 use xsecurelock_saver::engine::{
-    components::{
-        delete::Deleted,
-        physics::{
-            Mass,
-            Position,
-        },
-    },
+    components::delete::Deleted,
     resources::{
         draw::View,
         scene::SceneChange,
     },
 };
 
-use config::scoring::ScoringConfig;
-use model::{Scenario, World};
-use storage::Storage;
-use worldgenerator::WorldGenerator;
+use crate::{
+    config::scoring::ScoringConfig,
+    model::{Scenario, World},
+    storage::Storage,
+    worldgenerator::WorldGenerator,
+};
 
 use self::scoring_function::Expression;
 

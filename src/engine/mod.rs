@@ -26,6 +26,12 @@ use sfml::system::{Clock, SfBox, Time, Vector2f};
 use specs::{Component, System};
 use shred::Resource;
 
+use physics::{
+    self,
+    resources::{PhysicsDeltaTime, PhysicsElapsed},
+    systems::{ClearForceAccumulators, SetupNextPhysicsPosition},
+};
+
 use self::{
     resources::{
         draw::{
@@ -40,8 +46,6 @@ use self::{
         time::{
             DeltaTime,
             Elapsed,
-            PhysicsDeltaTime,
-            PhysicsElapsed,
         },
     },
     systems::{
@@ -51,10 +55,6 @@ use self::{
             SyncDrawShapesSystem,
             DrawDrawShapesSystem,
             SfShape,
-        },
-        physics::{
-            ClearForceAccumulators,
-            SetupNextPhysicsPosition,
         },
         scene::ClearCurrentScene,
         specialized::{
@@ -83,6 +83,7 @@ impl<'a, 'b> EngineBuilder<'a, 'b> {
         Self {
             world: {
                 let mut world = ::specs::World::new();
+                physics::register(&mut world);
                 components::register_all(&mut world);
                 resources::add_default_resources(&mut world);
                 world
@@ -291,7 +292,7 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
 
     /// Runs the game loop.
     pub fn run(mut self) {
-        ::sigint::init();
+        crate::sigint::init();
 
         self.clock.restart();
         {
@@ -305,7 +306,7 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
             t.current = start;
             t.previous = start - dt.0;
         }
-        while !::sigint::received_sigint() {
+        while !crate::sigint::received_sigint() {
             let now = self.clock.elapsed_time();
             self.maybe_physics_update(now);
             self.update(now);

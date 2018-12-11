@@ -34,6 +34,14 @@ use rand::{
     },
 };
 
+use physics::components::{
+    ForceAccumulator,
+    Mass,
+    Position,
+    Rotation,
+    Vector,
+    Velocity,
+};
 use xsecurelock_saver::engine::{
     resources::scene::SceneLoader,
     components::{
@@ -43,38 +51,31 @@ use xsecurelock_saver::engine::{
             ShapeType,
         },
         scene::InScene,
-        physics::{
-            ForceAccumulator,
-            Mass,
-            Position,
-            Rotation,
-            Vector,
-            Velocity,
-        },
     },
 };
 
 use circle_collision::CircleCollider;
 use gravity::{GravitySource, GravityTarget};
 
-use collision;
-
-use model::{Planet, Scenario, World};
-use statustracker::ActiveWorld;
-use storage::Storage;
-use config::{
-    generator::{
-        GeneratorConfig,
-        MutationParameters,
-        NewPlanetParameters,
-        NewWorldParameters,
-        PlanetMutationParameters,
-    },
-    util::{
-        Distribution as ConfDist,
-        ExponentialDistribution,
-        NormalDistribution,
-        UniformDistribution,
+use crate::{
+    collision,
+    model::{Planet, Scenario, World},
+    statustracker::ActiveWorld,
+    storage::Storage,
+    config::{
+        generator::{
+            GeneratorConfig,
+            MutationParameters,
+            NewPlanetParameters,
+            NewWorldParameters,
+            PlanetMutationParameters,
+        },
+        util::{
+            Distribution as ConfDist,
+            ExponentialDistribution,
+            NormalDistribution,
+            UniformDistribution,
+        },
     },
 };
 use self::per_thread_rng::PerThreadRng;

@@ -19,24 +19,6 @@ extern crate log;
 #[macro_use]
 extern crate lalrpop_util;
 
-extern crate clap;
-extern crate dirs;
-extern crate nalgebra;
-extern crate num_complex;
-extern crate num_traits;
-extern crate rand;
-extern crate sfml;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-extern crate simple_logger;
-extern crate specs;
-
-extern crate circle_collision;
-extern crate gravity;
-#[cfg(feature = "graphical")]
-extern crate xsecurelock_saver;
-
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, ErrorKind};
@@ -57,30 +39,28 @@ use circle_collision::{
 };
 
 #[cfg(feature = "graphical")]
-use xsecurelock_saver::engine::{
-    EngineBuilder,
-    systems::physics::{
-        SympleticEulerForceStep,
-        SympleticEulerVelocityStep,
-    },
-};
+use xsecurelock_saver::engine::EngineBuilder;
 
-use collision::{
-    DeleteCollidedPlanets,
-    MergeCollidedPlanets,
-    MergedInto,
+use physics::systems::{SympleticEulerForceStep, SympleticEulerVelocityStep};
+
+use crate::{
+    collision::{
+        DeleteCollidedPlanets,
+        MergeCollidedPlanets,
+        MergedInto,
+    },
+    config::{
+        GeneticOrbitsConfig,
+        generator::GeneratorConfig,
+        scoring::ScoringConfig,
+    },
+    statustracker::{ActiveWorld, ScoreKeeper},
+    storage::{
+        Storage,
+        sqlite::SqliteStorage,
+    },
+    worldgenerator::WorldGenerator,
 };
-use config::{
-    GeneticOrbitsConfig,
-    generator::GeneratorConfig,
-    scoring::ScoringConfig,
-};
-use statustracker::{ActiveWorld, ScoreKeeper};
-use storage::{
-    Storage,
-    sqlite::SqliteStorage,
-};
-use worldgenerator::WorldGenerator;
 
 mod collision;
 mod config;

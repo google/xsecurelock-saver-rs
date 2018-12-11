@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate rusqlite;
-
 use std::error::Error;
 use std::path::Path;
 
-use self::rusqlite::{
+use rusqlite::{
     Connection,
     Error as SqlError,
     NO_PARAMS,
@@ -32,8 +30,10 @@ use self::rusqlite::{
 };
 use serde_json;
 
-use storage::Storage;
-use model::{Scenario, World};
+use crate::{
+    storage::Storage,
+    model::{Scenario, World},
+};
 
 pub struct SqliteStorage {
     conn: Connection,

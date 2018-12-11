@@ -60,7 +60,7 @@ pub enum Distribution {
 impl Distribution {
     /// Fix invalid to the given default, assuming inclusive uniform.
     pub fn fix_invalid_helper_iu(&mut self, path: &str, name: &str, default: fn() -> Self) {
-        ::config::fix_invalid_helper(
+        crate::config::fix_invalid_helper(
             path, name,
             "Exponential must have lambda > 0, Normal must have standard_deviation >= 0, \
             or Uniform must have max >= min",

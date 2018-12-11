@@ -14,6 +14,5 @@
 
 pub(crate) mod delete;
 pub mod draw;
-pub mod physics;
 pub mod scene;
 pub mod specialized;

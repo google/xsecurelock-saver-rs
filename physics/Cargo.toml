@@ -7,6 +7,7 @@ edition = "2018"
 [features]
 default = []
 graphical = ["sfml"]
+serde-serialize = ["nalgebra/serde-serialize"]
 
 [dependencies]
 nalgebra = "0.15"

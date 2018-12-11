@@ -20,7 +20,7 @@ use specs::{
     System,
 };
 
-use engine::components::delete::Deleted;
+use crate::engine::components::delete::Deleted;
 
 pub(crate) struct DeleteSystem;
 impl<'a> System<'a> for DeleteSystem {

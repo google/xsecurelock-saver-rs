@@ -16,8 +16,7 @@ use std::sync::mpsc::{self, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use storage::Storage;
-use timer;
+use crate::{storage::Storage, timer};
 
 /// Tick action received on the timer channel.
 #[derive(Clone)]

@@ -14,8 +14,10 @@
 
 //! Contains configuration structs for the scoring system.
 
-use config::{Validation, fix_invalid_helper};
-use statustracker::ScoringFunction;
+use crate::{
+    config::{Validation, fix_invalid_helper},
+    statustracker::ScoringFunction,
+};
 
 /// Tuning parameters for world scoring.
 #[derive(Serialize, Deserialize, Debug, Clone)]

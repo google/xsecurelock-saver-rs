@@ -24,7 +24,7 @@ use specs::{
     World,
 };
 
-use engine::resources::draw::DrawLayers;
+use crate::engine::resources::draw::DrawLayers;
 
 pub(crate) fn register_all(world: &mut World) {
     world.register::<DrawLayer>();

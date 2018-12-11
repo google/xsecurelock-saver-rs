@@ -15,7 +15,7 @@
 //! Model of the start-state of the world. Identifies a unique world.
 use std::f32;
 
-use xsecurelock_saver::engine::components::physics::Vector;
+use physics::components::Vector;
 
 #[derive(Debug)]
 pub struct Scenario {

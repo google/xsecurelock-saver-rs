@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use statustracker::scoring_function::{BinaryOperator, Expression, UnaryOperator};
+use crate::statustracker::scoring_function::{BinaryOperator, Expression, UnaryOperator};
 
 /// A visitor that receives a node from an expression tree.
 pub trait Visitor {
