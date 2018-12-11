@@ -120,6 +120,7 @@ fn run_saver<S: Storage + Default + Send + Sync + 'static>(
 fn run_saver_graphical<S: Storage + Default + Send + Sync + 'static>(
     scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
 ) {
+    info!("Running in graphical mode");
     EngineBuilder::new()
         .with_initial_sceneloader(WorldGenerator::<S>::default())
         .with_resource(GravitationalConstant(1000.))
@@ -159,8 +160,11 @@ fn run_saver_graphical<S: Storage + Default + Send + Sync + 'static>(
 fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
     scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
 ) {
+    info!("Running in headless mode");
     use specs::{World, DispatcherBuilder};
     let mut world = World::new();
+    physics::register(&mut world);
+    scene_management::register(&mut world);
     world.register::<CircleCollider>();
     world.register::<GravitySource>();
     world.register::<GravityTarget>();
@@ -177,7 +181,19 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
     world.add_resource(storage);
     world.add_resource(ActiveWorld::default());
 
+    use physics::systems::{SetupNextPhysicsPosition, ClearForceAccumulators};
+    use scene_management::{
+        SceneChangeHandlerBuilder,
+        systems::DeleteSystem,
+    };
+    use std::sync::Arc;
+    let threadpool = Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap());
+
     let mut dispatcher = DispatcherBuilder::new()
+        .with_pool(Arc::clone(&threadpool))
+        .with(SetupNextPhysicsPosition, "", &[])
+        .with(ClearForceAccumulators, "", &[])
+        .with_barrier()
         // Run the real merge just before scoring.
         .with(MergeCollidedPlanets, "merge-collided", &[])
         .with(DeleteCollidedPlanets, "delete-collided", &["merge-collided"])
@@ -192,11 +208,21 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
             BruteForceCollisionDetector, "detect-collisions", &["integrate-forces"])
         .with(
             SympleticEulerVelocityStep, "integrate-velocities", &["detect-collisions"])
+        .with_barrier()
+        .with(DeleteSystem, "", &[])
         .build();
+
+    let mut change_handler = SceneChangeHandlerBuilder::new()
+        .with_threadpool(threadpool)
+        .build();
+
+    dispatcher.setup(&mut world.res);
+    change_handler.setup(&mut world);
 
     loop {
         dispatcher.dispatch(&mut world.res);
         world.maintain();
+        change_handler.handle_scene_change(&mut world);
     }
 }
 
