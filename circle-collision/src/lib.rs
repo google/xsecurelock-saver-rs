@@ -14,8 +14,6 @@
 
 //! Provides a specs ECS system for simple circle-based collision detection, for the Screensaver
 //! Engine.
-extern crate specs;
-extern crate xsecurelock_saver;
 
 #[cfg(feature = "debug-timing")]
 use std::time::Instant;
@@ -32,10 +30,14 @@ use specs::{
     Write,
 };
 
-use xsecurelock_saver::engine::components::delete::Deleted;
-use xsecurelock_saver::engine::components::physics::{Position, Vector, Velocity};
-use xsecurelock_saver::engine::components::scene::InScene;
-use xsecurelock_saver::engine::resources::time::PhysicsDeltaTime;
+use physics::{
+    components::{Position, Vector, Velocity},
+    resources::PhysicsDeltaTime,
+};
+use xsecurelock_saver::engine::components::{
+    delete::Deleted,
+    scene::InScene,
+};
 
 /// A collision between two entities.
 #[derive(Debug, Copy, Clone)]

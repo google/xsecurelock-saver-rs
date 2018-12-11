@@ -15,9 +15,10 @@
 use std::num::ParseFloatError;
 
 use lalrpop_util::ParseError;
-use statustracker::scoring_function::Expression;
-use statustracker::scoring_function::BinaryOperator;
-use statustracker::scoring_function::UnaryOperator;
+
+use crate::statustracker::scoring_function::Expression;
+use crate::statustracker::scoring_function::BinaryOperator;
+use crate::statustracker::scoring_function::UnaryOperator;
 
 grammar;
 

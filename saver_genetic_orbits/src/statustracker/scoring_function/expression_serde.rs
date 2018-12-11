@@ -15,7 +15,7 @@
 mod ser {
     use serde::ser::{Serialize, Serializer};
 
-    use statustracker::scoring_function::Expression;
+    use crate::statustracker::scoring_function::Expression;
 
     impl Serialize for Expression {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -30,7 +30,7 @@ mod de {
     use serde::de::{Deserialize, Deserializer, Visitor, Error};
     use std::fmt;
     
-    use statustracker::scoring_function::Expression;
+    use crate::statustracker::scoring_function::Expression;
     
     impl<'de> Deserialize<'de> for Expression {
         fn deserialize<D>(deserializer: D) -> Result<Expression, D::Error>

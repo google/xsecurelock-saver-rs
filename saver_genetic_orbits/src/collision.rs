@@ -27,22 +27,21 @@ use specs::{
     WriteStorage,
 };
 
-use xsecurelock_saver::engine::{
-    components::{
-        delete::Deleted,
-        draw::{
-            DrawColor,
-            DrawShape,
-            ShapeType,
-        },
-        physics::{
-            ForceAccumulator,
-            Mass,
-            Position,
-            Rotation,
-            Vector,
-            Velocity,
-        },
+use physics::components::{
+    ForceAccumulator,
+    Mass,
+    Position,
+    Rotation,
+    Vector,
+    Velocity,
+};
+
+use xsecurelock_saver::engine::components::{
+    delete::Deleted,
+    draw::{
+        DrawColor,
+        DrawShape,
+        ShapeType,
     },
 };
 
@@ -53,7 +52,7 @@ use circle_collision::{
     LastUpdateCollisions,
 };
 
-use model::Planet;
+use crate::model::Planet;
 
 #[inline] pub fn planet() -> CollisionLayer { CollisionLayer::new(1) }
 
@@ -192,7 +191,7 @@ impl<'a> System<'a> for MergeCollidedPlanets {
             shapes.insert(e1, DrawShape {
                 shape_type: ShapeType::Circle {
                     radius,
-                    point_count: ::worldgenerator::radius_to_point_count(radius),
+                    point_count: crate::worldgenerator::radius_to_point_count(radius),
                 },
                 origin: Vector2f::new(radius, radius),
             }).unwrap();

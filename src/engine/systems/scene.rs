@@ -19,7 +19,7 @@ use specs::{
     System,
 };
 
-use engine::components::scene::InScene;
+use crate::engine::components::scene::InScene;
 
 pub struct ClearCurrentScene;
 impl<'a> System<'a> for ClearCurrentScene {

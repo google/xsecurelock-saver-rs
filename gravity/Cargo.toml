@@ -2,6 +2,7 @@
 name = "gravity"
 version = "0.1.0"
 authors = ["Zachary Stewart <zstewart@google.com>"]
+edition = "2018"
 
 [features]
 debug-timing = []
@@ -9,6 +10,7 @@ debug-timing = []
 [dependencies]
 bitflags = "1.0"
 specs = "0.11"
+physics = { path = "../physics" }
 
 [dependencies.xsecurelock-saver]
 path = "../"

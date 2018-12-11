@@ -125,12 +125,8 @@ impl Position {
     #[inline]
     pub fn set_mode(&mut self, mode: PositionInterpolationMode) { self.mode = mode; }
 
-    /// Interpolate from the previous position to the current position based on the relative
-    /// physics and real times.
-    pub fn interpolate(
-        &self, real_time: Time, physics_time: &PhysicsElapsed,
-    ) -> (Vector, Rotation) {
-        let factor = Self::physics_interpolation_factor(real_time, physics_time);
+    /// Interpolate from the previous position to the current position.
+    pub fn interpolate(&self, factor: f32) -> (Vector, Rotation) {
         match self.mode {
             PositionInterpolationMode::Interpolated => {
                 let pos = self.current.0 * factor + self.previous.0 * (1. - factor);
@@ -142,7 +138,7 @@ impl Position {
     }
 
     /// Calculate an interpolation factor from the previous physics timestep to now.
-    fn physics_interpolation_factor(elapsed: Time, physics: &PhysicsElapsed) -> f32 {
+    pub fn physics_interpolation_factor(elapsed: Time, physics: &PhysicsElapsed) -> f32 {
         let since_physics = elapsed - physics.previous;
         let physics_step = physics.current - physics.previous;
         since_physics.as_seconds() / physics_step.as_seconds()

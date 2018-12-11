@@ -32,14 +32,6 @@ use sfml::window::Style;
 mod sigint;
 
 #[cfg(feature = "engine")]
-extern crate nalgebra;
-#[cfg(feature = "engine")]
-extern crate rayon;
-#[cfg(feature = "engine")]
-extern crate specs;
-#[cfg(feature = "engine")]
-extern crate shred;
-#[cfg(feature = "engine")]
 pub mod engine;
 
 /// A screensaver which can be run on an SFML RenderTarget.

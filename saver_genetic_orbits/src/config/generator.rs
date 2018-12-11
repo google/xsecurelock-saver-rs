@@ -14,8 +14,9 @@
 
 //! Contains configuration structs for the world generator.
 
-use xsecurelock_saver::engine::components::physics::Vector;
-use config::{
+use physics::components::Vector;
+
+use crate::config::{
     util::{
         Distribution,
         ExponentialDistribution,

@@ -14,7 +14,7 @@
 
 use std::error::Error;
 
-use model::{Scenario, World};
+use crate::model::{Scenario, World};
 
 pub mod sqlite;
 

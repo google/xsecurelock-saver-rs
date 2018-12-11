@@ -13,8 +13,6 @@
 // limitations under the License.
 
 //! Provides a specs ECS system for simple gravity calculations for the Screensaver Engine.
-extern crate specs;
-extern crate xsecurelock_saver;
 
 #[cfg(feature = "debug-timing")]
 use std::time::Instant;
@@ -30,12 +28,12 @@ use specs::{
     WriteStorage,
 };
 
-use xsecurelock_saver::engine::components::delete::Deleted;
-use xsecurelock_saver::engine::components::physics::{
+use physics::components::{
     ForceAccumulator,
     Position,
     Mass,
 };
+use xsecurelock_saver::engine::components::delete::Deleted;
 
 pub struct GravitationalConstant(pub f32);
 

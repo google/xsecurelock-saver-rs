@@ -17,8 +17,6 @@ use sfml::system::Time;
 pub(crate) fn add_default_resources(world: &mut ::specs::World) {
     world.add_resource(DeltaTime::default());
     world.add_resource(Elapsed::default());
-    world.add_resource(PhysicsDeltaTime::default());
-    world.add_resource(PhysicsElapsed::default());
 }
 
 /// The time since the last update/fixed update.
@@ -42,34 +40,3 @@ impl Default for Elapsed {
         }
     }
 }
-
-/// The amount of time elapsed in the physics simulation.
-pub struct PhysicsDeltaTime(pub Time);
-
-impl Default for PhysicsDeltaTime {
-    fn default() -> Self { PhysicsDeltaTime(Time::milliseconds(16)) }
-}
-
-/// The total elapsed time in the physics simulation.
-pub struct PhysicsElapsed {
-    pub previous: Time,
-    pub current: Time,
-}
-
-impl Default for PhysicsElapsed {
-    fn default() -> Self { 
-        PhysicsElapsed {
-            current: Time::ZERO,
-            previous: Time::ZERO,
-        }
-    }
-}
-
-/// Calculate an interpolation factor from the previous physics timestep to now.
-pub fn physics_interpolation_factor(elapsed: &Elapsed, physics: &PhysicsElapsed) -> f32 {
-    let since_physics = elapsed.current - physics.previous;
-    let physics_step = physics.current - physics.previous;
-    since_physics.as_seconds() / physics_step.as_seconds()
-}
-
-
