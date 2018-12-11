@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
+use rayon::ThreadPool;
 use specs::{Dispatcher, DispatcherBuilder, System, World};
 
 use crate::{
@@ -34,6 +37,17 @@ pub struct SceneChangeHandlerBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> SceneChangeHandlerBuilder<'a, 'b> {
+    /// Set the threadpool to use when dispatching.
+    pub fn with_threadpool(mut self, pool: Arc<ThreadPool>) -> Self {
+        self.set_threadpool(pool);
+        self
+    }
+
+    /// Set the threadpool to use when dispatching.
+    pub fn set_threadpool(&mut self, pool: Arc<ThreadPool>) {
+        self.scene_change_dispatcher.add_pool(pool);
+    }
+
     /// Add a system to run on scene_changes. Arguments are the same as for
     /// `DispatcherBuilder.with`.  Dependencies can only refer to other scene_change systems added
     /// previously. This system will be run only when a scene change has been scheduled and can be

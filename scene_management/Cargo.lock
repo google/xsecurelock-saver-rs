@@ -233,6 +233,7 @@ dependencies = [
 name = "scene_management"
 version = "0.1.0"
 dependencies = [
+ "rayon 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "shred 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
