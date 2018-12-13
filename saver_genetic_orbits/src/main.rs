@@ -108,10 +108,12 @@ fn main() {
 fn run_saver<S: Storage + Default + Send + Sync + 'static>(
     headless: bool, scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
 ) {
-    #[cfg(feature = "graphical")] {
-        if !headless {
+    if !headless {
+        #[cfg(feature = "graphical")] {
             return run_saver_graphical(scoring, generator, storage);
         }
+    } else if cfg!(not(feature = "graphical")) {
+        warn!("Headless flag has no effect if not compiled with graphics support");
     }
     run_saver_headless(scoring, generator, storage);
 }
@@ -162,6 +164,7 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
 ) {
     info!("Running in headless mode");
     use specs::{World, DispatcherBuilder};
+    use scene_management::resources::SceneChange;
     let mut world = World::new();
     physics::register(&mut world);
     scene_management::register(&mut world);
@@ -180,6 +183,7 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
     world.add_resource(generator);
     world.add_resource(storage);
     world.add_resource(ActiveWorld::default());
+    world.write_resource::<SceneChange>().change_scene(WorldGenerator::<S>::default());
 
     use physics::systems::{SetupNextPhysicsPosition, ClearForceAccumulators};
     use scene_management::{
@@ -214,6 +218,7 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
 
     let mut change_handler = SceneChangeHandlerBuilder::new()
         .with_threadpool(threadpool)
+        .with_pre_load_sys(ClearCollisionsInvolvingSceneEntities, "", &[])
         .build();
 
     dispatcher.setup(&mut world.res);

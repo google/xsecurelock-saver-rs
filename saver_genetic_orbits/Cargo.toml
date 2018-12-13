@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["graphical"]
 debug-timing = []
-graphical = ["xsecurelock-saver", "physics/graphical"]
+graphical = ["sfml", "xsecurelock-saver", "physics/graphical"]
 
 [dependencies]
 circle-collision = { path = "../circle-collision" }
@@ -29,7 +29,7 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 serde_yaml = "0.8"
-sfml = { git = "https://github.com/jeremyletang/rust-sfml.git", branch = "master" }
+sfml = { git = "https://github.com/jeremyletang/rust-sfml.git", branch = "master", optional = true }
 simple_logger = "1.0"
 specs = "0.11"
 
