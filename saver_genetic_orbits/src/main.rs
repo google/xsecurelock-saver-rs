@@ -163,8 +163,12 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
     scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
 ) {
     info!("Running in headless mode");
+    use sigint;
     use specs::{World, DispatcherBuilder};
     use scene_management::resources::SceneChange;
+
+    sigint::init();
+
     let mut world = World::new();
     physics::register(&mut world);
     scene_management::register(&mut world);
@@ -224,7 +228,7 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
     dispatcher.setup(&mut world.res);
     change_handler.setup(&mut world);
 
-    loop {
+    while !sigint::received_sigint() {
         dispatcher.dispatch(&mut world.res);
         world.maintain();
         change_handler.handle_scene_change(&mut world);
