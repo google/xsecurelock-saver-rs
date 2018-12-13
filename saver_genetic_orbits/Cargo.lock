@@ -868,6 +868,7 @@ dependencies = [
  "serde_json 1.0.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.8.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "sfml 0.14.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
+ "sigint 0.1.0",
  "simple_logger 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "xsecurelock-saver 0.1.0",
@@ -984,6 +985,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "derivative 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sigint"
+version = "0.1.0"
+dependencies = [
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1266,7 +1274,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "xsecurelock-saver"
 version = "0.1.0"
 dependencies = [
- "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "physics 0.1.0",
@@ -1274,6 +1281,7 @@ dependencies = [
  "scene_management 0.1.0",
  "sfml 0.14.0 (git+https://github.com/jeremyletang/rust-sfml.git)",
  "shred 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sigint 0.1.0",
  "specs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
