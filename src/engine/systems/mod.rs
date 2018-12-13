@@ -13,5 +13,4 @@
 // limitations under the License.
 
 pub mod draw;
-pub mod scene;
 pub mod specialized;
