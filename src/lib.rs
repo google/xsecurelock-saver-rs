@@ -15,10 +15,6 @@
 #[macro_use]
 extern crate log;
 
-extern crate libc;
-extern crate sfml;
-
-
 use std::env;
 
 use sfml::graphics::{
@@ -28,8 +24,6 @@ use sfml::graphics::{
 };
 use sfml::system::Vector2u;
 use sfml::window::Style;
-
-mod sigint;
 
 #[cfg(feature = "engine")]
 pub mod engine;
@@ -44,8 +38,9 @@ pub trait Screensaver {
 }
 
 pub fn run_saver<F, S>(create_saver: F) 
-    where F: FnOnce(Vector2u) -> S,
-          S: Screensaver {
+where F: FnOnce(Vector2u) -> S,
+      S: Screensaver {
+    use sigint;
     sigint::init();
 
     let mut window = open_window();

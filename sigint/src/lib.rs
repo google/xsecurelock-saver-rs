@@ -16,10 +16,11 @@ use std::sync::atomic::{AtomicBool, Ordering, ATOMIC_BOOL_INIT};
 
 use libc;
 
+static INITIALIZED: AtomicBool = ATOMIC_BOOL_INIT;
 static RECEIVED_SIGINT: AtomicBool = ATOMIC_BOOL_INIT;
 
 extern "C" fn sigint_handler(_arg: libc::c_int) {
-    RECEIVED_SIGINT.store(true, Ordering::Release);
+    RECEIVED_SIGINT.store(true, Ordering::Relaxed);
 }
 
 #[allow(non_camel_case_types)]
@@ -29,10 +30,12 @@ extern "C" {
     fn signal(signum: libc::c_int, handler: sighandler_t) -> sighandler_t;
 }
 
-pub(crate) fn received_sigint() -> bool {
-    RECEIVED_SIGINT.load(Ordering::Acquire)
+pub fn received_sigint() -> bool {
+    RECEIVED_SIGINT.load(Ordering::Relaxed)
 }
 
-pub(crate) fn init() {
-    unsafe { signal(libc::SIGINT, sigint_handler) };
+pub fn init() {
+    if !INITIALIZED.swap(true, Ordering::AcqRel) {
+        unsafe { signal(libc::SIGINT, sigint_handler) };
+    }
 }

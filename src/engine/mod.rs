@@ -292,7 +292,8 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
 
     /// Runs the game loop.
     pub fn run(mut self) {
-        crate::sigint::init();
+        use sigint;
+        sigint::init();
 
         self.clock.restart();
         {
@@ -306,7 +307,7 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
             t.current = start;
             t.previous = start - dt.0;
         }
-        while !crate::sigint::received_sigint() {
+        while !sigint::received_sigint() {
             let now = self.clock.elapsed_time();
             self.maybe_physics_update(now);
             self.update(now);
