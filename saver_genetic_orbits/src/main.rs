@@ -95,7 +95,11 @@ fn main() {
             .help(
                 "run in headless mode with no grpahics (no effect if not compiled with graphics \
                 enabled)"))
-        .get_matches();
+        .get_matches_from(
+            // XSecureLock runs with "-root" for XScreenSaver compatibility, and we don't need it,
+            // so skip it.
+            ::std::env::args_os()
+                .filter(|arg| arg != "-root"));
 
     run_saver(args.is_present("headless"), scoring, generator, storage);
 
