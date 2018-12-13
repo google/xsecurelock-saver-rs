@@ -29,7 +29,6 @@ use physics::components::{
     Position,
 };
 use scene_management::{components::Deleted, resources::SceneChange};
-use xsecurelock_saver::engine::resources::draw::View;
 
 use crate::{
     config::scoring::ScoringConfig,
@@ -41,6 +40,26 @@ use crate::{
 use self::scoring_function::Expression;
 
 mod scoring_function;
+
+#[cfg(feature = "graphical")]
+mod area_scaling {
+    use specs::Read;
+    use xsecurelock_saver::engine::resources::draw::View;
+
+    pub(super) type AreaScalingData<'a> = Read<'a, View>;
+
+    pub(super) fn get_aspect<'a>(view: &AreaScalingData<'a>) -> f32 {
+        // x / y = w / w_0; w_0 * x / y = w
+        view.size.x / view.size.y
+    }
+}
+
+#[cfg(not(feature = "graphical"))]
+mod area_scaling {
+    pub(super) type AreaScalingData<'a> = ();
+
+    pub(super) fn get_aspect<'a>((): &AreaScalingData<'a>) -> f32 { 1. }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(transparent)]
@@ -90,33 +109,32 @@ pub struct ScoreKeeper<T>(PhantomData<T>);
 impl<'a, T> System<'a> for ScoreKeeper<T> where T: Storage + Default + Send + Sync + 'static {
     type SystemData = (
         Read<'a, ScoringConfig>,
-        Read<'a, View>,
         Write<'a, ActiveWorld>,
         Write<'a, T>,
         Write<'a, SceneChange>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, Mass>,
         ReadStorage<'a, Deleted>,
+        area_scaling::AreaScalingData<'a>,
     );
 
     fn run(
         &mut self,
         (
             scoring,
-            view,
             mut world_track,
             mut storage,
             mut scene_change,
             positions,
             masses,
             deleted,
+            scaling_data,
         ): Self::SystemData,
     ) {
         if world_track.ticks_completed < scoring.scored_ticks {
             let vertical_half_extent = scoring.scored_area.height / 2.;
             let horizontal_half_extent = if scoring.scored_area.scale_width_by_aspect {
-                // x / y = w / w_0; w_0 * x / y = w
-                let aspect = view.size.x / view.size.y;
+                let aspect = area_scaling::get_aspect(&scaling_data);
                 scoring.scored_area.width * aspect
             } else {
                 scoring.scored_area.width

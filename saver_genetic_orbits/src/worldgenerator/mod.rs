@@ -14,9 +14,6 @@
 
 use std::marker::PhantomData;
 
-use sfml::graphics::Color;
-use sfml::system::Vector2f;
-
 use specs::{
     Entities,
     LazyUpdate,
@@ -45,7 +42,6 @@ use physics::components::{
     Velocity,
 };
 use scene_management::{resources::SceneLoader, components::InScene};
-use xsecurelock_saver::engine::components::draw::{DrawColor, DrawShape, ShapeType};
 
 use crate::{
     collision,
@@ -118,22 +114,9 @@ where T: Storage + Default + Send + Sync + 'static
 
         for planet in new_world.planets.iter() {
             let radius = planet.radius();
-            let color = self.generate_random_color();
-            lazy.create_entity(&entities)
+            graphical_components
+                ::add_graphical_components(radius, &mut self.rng, lazy.create_entity(&entities))
                 .with(InScene)
-                // Drawing
-                .with(DrawColor {
-                    fill_color: color,
-                    outline_color: color,
-                    outline_thickness: 0.,
-                })
-                .with(DrawShape {
-                    shape_type: ShapeType::Circle {
-                        radius,
-                        point_count: radius_to_point_count(radius),
-                    },
-                    origin: Vector2f::new(radius, radius),
-                })
                 // Physics
                 .with(Position::new(planet.position, Rotation::from_angle(0.)))
                 .with(Velocity {
@@ -375,54 +358,91 @@ impl<T, R: Rng> WorldGenerator<T, R> {
         planet.mass += mass_change;
         planet.mass = params.min_mass.max(planet.mass);
     }
+}
+
+#[cfg(feature = "graphical")]
+pub(crate) mod graphical_components {
+    use rand::{Rng, distributions::{Distribution, Uniform}};
+    use sfml::{graphics::Color, system::Vector2f};
+    use specs::world::LazyBuilder;
+
+    use xsecurelock_saver::engine::components::draw::{DrawColor, DrawShape, ShapeType};
+
+    pub(super) fn add_graphical_components<'a, R: Rng>(
+        radius: f32, rng: &mut R, builder: LazyBuilder<'a>,
+    ) -> LazyBuilder<'a> {
+        let color = generate_random_color(rng);
+        builder.with(DrawColor {
+                fill_color: color,
+                outline_color: color,
+                outline_thickness: 0.,
+            })
+            .with(DrawShape {
+                shape_type: ShapeType::Circle {
+                    radius,
+                    point_count: radius_to_point_count(radius),
+                },
+                origin: Vector2f::new(radius, radius),
+            })
+    }
 
     /// Generates a random color, usually fairly bright.
-    fn generate_random_color(&mut self) -> Color {
+    fn generate_random_color<R: Rng>(rng: &mut R) -> Color {
         let hue_dist = Uniform::new(0., 360.);
         let sat_dist = Uniform::new_inclusive(0.75, 1.);
         let value_dist = Uniform::new_inclusive(0.75, 1.);
 
-        let h = hue_dist.sample(&mut self.rng);
-        let s = sat_dist.sample(&mut self.rng);
-        let v = value_dist.sample(&mut self.rng);
+        let h = hue_dist.sample(rng);
+        let s = sat_dist.sample(rng);
+        let v = value_dist.sample(rng);
         hsv_to_rgb(h, s, v)
+    }
+
+    fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
+        assert!(0. <= h && h < 360.);
+        assert!(0. <= s && s <= 1.);
+        assert!(0. <= v && v <= 1.);
+        let (r, g, b) = if s == 0. {
+            (v, v, v)
+        } else {
+            let hh = h / 60.;
+            let i = hh.trunc() as i32;
+            let ff = hh.fract();
+            let p = v * (1.0 - s);
+            let q = v * (1.0 - (s * ff));
+            let t = v * (1.0 - (s * (1.0 - ff)));
+    
+            match i {
+                0 => (v, t, p),
+                1 => (q, v, p),
+                2 => (p, v, t),
+                3 => (p, q, v),
+                4 => (t, p, v),
+                5 => (v, p, q),
+                _ => panic!("unexpected sector index: {}" , i),
+            }
+        };
+        Color::rgb(
+            (255. * r).round() as u8,
+            (255. * g).round() as u8,
+            (255. * b).round() as u8,
+        )
+    }
+    
+    pub(crate) fn radius_to_point_count(radius: f32) -> u32 {
+        const MIN_SEGMENTS: u32 = 8;
+        const SEGMENT_LEN: f32 = 8.;
+        let circumfrence = 2. * ::std::f32::consts::PI * radius;
+        MIN_SEGMENTS.max((circumfrence / SEGMENT_LEN).ceil() as u32)
     }
 }
 
-fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
-    assert!(0. <= h && h < 360.);
-    assert!(0. <= s && s <= 1.);
-    assert!(0. <= v && v <= 1.);
-    let (r, g, b) = if s == 0. {
-        (v, v, v)
-    } else {
-        let hh = h / 60.;
-        let i = hh.trunc() as i32;
-        let ff = hh.fract();
-        let p = v * (1.0 - s);
-        let q = v * (1.0 - (s * ff));
-        let t = v * (1.0 - (s * (1.0 - ff)));
+#[cfg(not(feature = "graphical"))]
+mod graphical_components {
+    use rand::Rng;
+    use specs::world::LazyBuilder;
 
-        match i {
-            0 => (v, t, p),
-            1 => (q, v, p),
-            2 => (p, v, t),
-            3 => (p, q, v),
-            4 => (t, p, v),
-            5 => (v, p, q),
-            _ => panic!("unexpected sector index: {}" , i),
-        }
-    };
-    Color::rgb(
-        (255. * r).round() as u8,
-        (255. * g).round() as u8,
-        (255. * b).round() as u8,
-    )
-}
-
-pub fn radius_to_point_count(radius: f32) -> u32 {
-    const MIN_SEGMENTS: u32 = 8;
-    const SEGMENT_LEN: f32 = 8.;
-    let circumfrence = 2. * ::std::f32::consts::PI * radius;
-    MIN_SEGMENTS.max((circumfrence / SEGMENT_LEN).ceil() as u32)
+    pub(super) fn add_graphical_components<'a, R: Rng>(
+        _radius: f32, _: &mut R, builder: LazyBuilder<'a>,
+    ) -> LazyBuilder<'a> { builder }
 }
