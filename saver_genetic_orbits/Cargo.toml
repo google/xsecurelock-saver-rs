@@ -16,7 +16,7 @@ dirs = "1.0"
 gravity = { path = "../gravity" }
 lalrpop-util = "0.16"
 log = "0.4"
-nalgebra = "0.15"
+nalgebra = "0.19"
 num-complex = "0.2"
 num-traits = "0.2"
 physics = { path = "../physics", features = ["serde-serialize"] }

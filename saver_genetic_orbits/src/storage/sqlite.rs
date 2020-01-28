@@ -90,12 +90,12 @@ impl Default for SqliteStorage {
 }
 
 impl Storage for SqliteStorage {
-    fn add_root_scenario(&mut self, world: World, score: f64) -> Result<Scenario, Box<Error>> {
+    fn add_root_scenario(&mut self, world: World, score: f64) -> Result<Scenario, Box<dyn Error>> {
         let txn = self.conn.transaction()?;
         let inserted = txn.execute(
             "INSERT INTO scenario (family, parent, generation, world, score)
                 VALUES (?1, ?2, ?3, ?4, ?5)",
-            &[&-1i64 as &ToSql, &None::<i64>, &0i64, &world, &score],
+            &[&-1i64 as &dyn ToSql, &None::<i64>, &0i64, &world, &score],
         )?;
         if inserted != 1 {
             return Err(format!("Expected to insert 1 row but had {} row changes", inserted).into());
@@ -121,13 +121,13 @@ impl Storage for SqliteStorage {
         world: World,
         score: f64,
         parent: &Scenario,
-    ) -> Result<Scenario, Box<Error>> {
+    ) -> Result<Scenario, Box<dyn Error>> {
         let generation = parent.generation + 1;
         let inserted = self.conn.execute(
             "INSERT INTO scenario (family, parent, generation, world, score)
                 VALUES (?1, ?2, ?3, ?4, ?5)",
             &[
-                &SqlWrappingU64(parent.family) as &ToSql,
+                &SqlWrappingU64(parent.family) as &dyn ToSql,
                 &Some(SqlWrappingU64(parent.id)),
                 &SqlBoundedU64(generation),
                 &world,
@@ -148,7 +148,7 @@ impl Storage for SqliteStorage {
         })
     }
 
-    fn num_scenarios(&mut self) -> Result<u64, Box<Error>> {
+    fn num_scenarios(&mut self) -> Result<u64, Box<dyn Error>> {
         self.conn
             .query_row_and_then(
                 "SELECT COUNT(*) FROM scenario", NO_PARAMS,
@@ -156,7 +156,9 @@ impl Storage for SqliteStorage {
             )
     }
 
-    fn get_nth_scenario_by_score(&mut self, index: u64) -> Result<Option<Scenario>, Box<Error>> {
+    fn get_nth_scenario_by_score(
+        &mut self, index: u64,
+    ) -> Result<Option<Scenario>, Box<dyn Error>> {
         let query_result = self.conn
             .query_row_and_then(
                 "SELECT id, family, parent, generation, world, score
@@ -182,7 +184,7 @@ impl Storage for SqliteStorage {
         }
     }
 
-    fn keep_top_scenarios_by_score(&mut self, number_to_keep: u64) -> Result<u64, Box<Error>> {
+    fn keep_top_scenarios_by_score(&mut self, number_to_keep: u64) -> Result<u64, Box<dyn Error>> {
         Ok(
             self.conn.execute(
                 "DELETE

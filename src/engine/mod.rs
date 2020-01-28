@@ -292,7 +292,6 @@ impl<'a, 'b, 'tex> Engine<'a, 'b, 'tex> {
 
     /// Runs the game loop.
     pub fn run(mut self) {
-        use sigint;
         sigint::init();
 
         self.clock.restart();

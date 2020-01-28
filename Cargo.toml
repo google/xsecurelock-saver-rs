@@ -10,7 +10,7 @@ serde-serialize = ["engine", "nalgebra/serde-serialize", "physics/serde-serializ
 
 [dependencies]
 log = "0.4"
-nalgebra = { version = "0.15", optional = true }
+nalgebra = { version = "0.19", optional = true }
 physics = { path = "physics", optional = true, features = ["graphical"] }
 rayon = { version = "1.0", optional = true }
 scene_management = { path = "scene_management", optional = true }

@@ -23,7 +23,7 @@ use sfml::graphics::{
     RenderWindow,
 };
 use sfml::system::Vector2u;
-use sfml::window::Style;
+use sfml::window::{Style, ContextSettings};
 
 #[cfg(feature = "engine")]
 pub mod engine;
@@ -40,7 +40,6 @@ pub trait Screensaver {
 pub fn run_saver<F, S>(create_saver: F) 
 where F: FnOnce(Vector2u) -> S,
       S: Screensaver {
-    use sigint;
     sigint::init();
 
     let mut window = open_window();
@@ -59,6 +58,10 @@ where F: FnOnce(Vector2u) -> S,
 }
 
 pub(crate) fn open_window() -> RenderWindow {
+    let settings = ContextSettings {
+        antialiasing_level: 4,
+        .. Default::default()
+    };
     let window = match env::var("XSCREENSAVER_WINDOW") {
         // Get the ID of the window from the $XSCREENSAVER_WINDOW environment variable, if
         // available, otherwise create a window for testing.
@@ -66,7 +69,7 @@ pub(crate) fn open_window() -> RenderWindow {
             info!("Opening existing window");
             let window_handle = window_id_str.parse()
                 .expect("window id was not an integer");
-            unsafe { RenderWindow::from_handle(window_handle, &Default::default()) }
+            unsafe { RenderWindow::from_handle(window_handle, &settings) }
         },
         Err(_) => {
             info!("Creating new window");
@@ -74,7 +77,7 @@ pub(crate) fn open_window() -> RenderWindow {
                 (1200, 900), 
                 "Screensaver Test Window",
                 Style::NONE,
-                &Default::default(),
+                &settings,
             )
         },
     };

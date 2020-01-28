@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::atomic::{AtomicBool, Ordering, ATOMIC_BOOL_INIT};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use libc;
 
-static INITIALIZED: AtomicBool = ATOMIC_BOOL_INIT;
-static RECEIVED_SIGINT: AtomicBool = ATOMIC_BOOL_INIT;
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
+static RECEIVED_SIGINT: AtomicBool = AtomicBool::new(false);
 
 extern "C" fn sigint_handler(_arg: libc::c_int) {
     RECEIVED_SIGINT.store(true, Ordering::Relaxed);

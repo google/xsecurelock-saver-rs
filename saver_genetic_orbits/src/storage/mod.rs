@@ -23,7 +23,7 @@ pub mod sqlite;
 // use &self instead of &mut self.
 pub trait Storage {
     /// Add a new root scenario. This scenario is the new root of a family of scenarios.
-    fn add_root_scenario(&mut self, world: World, score: f64) -> Result<Scenario, Box<Error>>;
+    fn add_root_scenario(&mut self, world: World, score: f64) -> Result<Scenario, Box<dyn Error>>;
 
     /// Add a new scenario that is the child of the specified scenario
     fn add_child_scenario(
@@ -31,16 +31,16 @@ pub trait Storage {
         world: World,
         score: f64,
         parent: &Scenario,
-    ) -> Result<Scenario, Box<Error>>;
+    ) -> Result<Scenario, Box<dyn Error>>;
 
     /// Returns the number of scenarios available.
-    fn num_scenarios(&mut self) -> Result<u64, Box<Error>>;
+    fn num_scenarios(&mut self) -> Result<u64, Box<dyn Error>>;
 
     /// Gets the nth scenario, in order of score (descending, so lower indexes are higher scoring
     /// scenarios). May return None if the index is outside the number of scenarios.
-    fn get_nth_scenario_by_score(&mut self, index: u64) -> Result<Option<Scenario>, Box<Error>>;
+    fn get_nth_scenario_by_score(&mut self, index: u64) -> Result<Option<Scenario>, Box<dyn Error>>;
 
     /// Removes the bottom scoring scenarios, keeping up to number_to_keep top scoring scenarios.
     /// Returns the number of scenarios pruned.
-    fn keep_top_scenarios_by_score(&mut self, number_to_keep: u64) -> Result<u64, Box<Error>>;
+    fn keep_top_scenarios_by_score(&mut self, number_to_keep: u64) -> Result<u64, Box<dyn Error>>;
 }

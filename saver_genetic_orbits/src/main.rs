@@ -167,7 +167,6 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
     scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
 ) {
     info!("Running in headless mode");
-    use sigint;
     use specs::{World, DispatcherBuilder};
     use scene_management::resources::SceneChange;
 
