@@ -12,7 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Simple screensavers using SFML graphics.
+//! Simple screensavers using SFML graphics. To use, implement [`Screensaver`]. You screensaver type
+//! should store whatever state it needs, and update state during `update`, then draw that state
+//! onto the render target during `draw`. The `Screensaver` instance can hold any data from [`sfml`]
+//! which you nee dto use during drawing or update, as well as any custom state.
+//!
+//! Once you have a screensaver type, run it with [`run_saver`]. This will handle connecting to the
+//! xsecurelock screensaver window and looping until sigint is received. If run outside of
+//! XSecurelock, this will create a small window for testing purposes.
+//!
+//! See `saver_sfmlrect` for basic example usage.
 
 use std::env;
 
@@ -24,7 +33,8 @@ use sfml::window::{ContextSettings, Style};
 
 /// A screensaver which can be run on an SFML RenderTarget.
 pub trait Screensaver {
-    /// Runs one "tick" in the screensaver, with the update happening at the specified time.
+    /// Update the internal state of this screensaver. Will be run as fast as possible by
+    /// [`run_saver`].
     fn update(&mut self);
 
     /// Draw the screensaver on the specified target.
@@ -33,6 +43,8 @@ pub trait Screensaver {
         T: RenderTarget;
 }
 
+/// Run a screensaver created by the given function. The argument to create will be the size of the
+/// render target.
 pub fn run_saver<F, S>(create_saver: F)
 where
     F: FnOnce(Vector2u) -> S,

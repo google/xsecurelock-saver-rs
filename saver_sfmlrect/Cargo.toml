@@ -1,0 +1,9 @@
+[package]
+name = "saver_sfmlrect"
+version = "0.1.0"
+authors = ["Zachary Stewart <zstewart@google.com>"]
+edition = "2018"
+
+[dependencies]
+sfml = "0.16"
+xsecurelock-saver = { path = "../xsecurelock-saver", features = ["simple"] }

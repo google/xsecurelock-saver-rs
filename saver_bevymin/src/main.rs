@@ -11,7 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use bevy::{prelude::*, render::camera::{Camera, PerspectiveProjection}};
+use bevy::{
+    prelude::*,
+    render::camera::{Camera, PerspectiveProjection},
+};
 use xsecurelock_saver::engine::XSecurelockSaverPlugins;
 
 fn main() {
@@ -23,7 +26,10 @@ fn main() {
         .run();
 }
 
-fn spin_camera(time: Res<Time>, mut query: Query<&mut Transform, (With<Camera>, With<PerspectiveProjection>)>) {
+fn spin_camera(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, (With<Camera>, With<PerspectiveProjection>)>,
+) {
     const SPEED: f32 = 0.5;
     const DIST: f32 = 6.0;
     let t = time.seconds_since_startup() as f32;

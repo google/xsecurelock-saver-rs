@@ -4,6 +4,7 @@ members = [
   "saver_bevymin",
   "saver_colorstatic",
 #  "saver_genetic_orbits",
+  "saver_sfmlrect",
   "sigint",
   "xsecurelock-saver",
 ]

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Screensavers for XSecurelock using SFML or Bevy. Enable one of the features, either `simple` for
+//! SFML or `engine` for Bevy, and see the corresponding module for usage.
+
 #[cfg(any(feature = "engine", doc))]
 pub mod engine;
 #[cfg(any(feature = "simple", doc))]
