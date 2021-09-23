@@ -61,6 +61,9 @@ fn main() {
     }
     let tex = Texture::from_image(&img).expect("Failed to create texture");
 
+    // Closure can capture references that outlive the screensaver, allowing you to load textures in
+    // `main` before starting the screensaver, and then reference them from the screensaver
+    // instance.
     xsecurelock_saver::simple::run_saver(|screen_size| {
         let center = Vector2f::new(screen_size.x as f32 * 0.5, screen_size.y as f32 * 0.5);
 
