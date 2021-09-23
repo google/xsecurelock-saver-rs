@@ -5,5 +5,5 @@ authors = ["Zachary Stewart <zstewart@google.com>"]
 
 [dependencies]
 rand = "0.5"
-sfml = { git = "https://github.com/jeremyletang/rust-sfml.git", branch = "master" }
-xsecurelock-saver = { path = "../" }
+sfml = "0.16"
+xsecurelock-saver = { path = "../xsecurelock-saver" }

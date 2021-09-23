@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[macro_use]
-extern crate log;
-
 use std::env;
 
+use log::info;
 use sfml::graphics::{
     Color,
     RenderTarget,
@@ -37,7 +35,7 @@ pub trait Screensaver {
     fn draw<T>(&self, target: &mut T) where T: RenderTarget;
 }
 
-pub fn run_saver<F, S>(create_saver: F) 
+pub fn run_saver<F, S>(create_saver: F)
 where F: FnOnce(Vector2u) -> S,
       S: Screensaver {
     sigint::init();
@@ -58,10 +56,8 @@ where F: FnOnce(Vector2u) -> S,
 }
 
 pub(crate) fn open_window() -> RenderWindow {
-    let settings = ContextSettings {
-        antialiasing_level: 4,
-        .. Default::default()
-    };
+    let mut settings = ContextSettings::default();
+    settings.set_antialiasing_level(4);
     let window = match env::var("XSCREENSAVER_WINDOW") {
         // Get the ID of the window from the $XSCREENSAVER_WINDOW environment variable, if
         // available, otherwise create a window for testing.
@@ -74,7 +70,7 @@ pub(crate) fn open_window() -> RenderWindow {
         Err(_) => {
             info!("Creating new window");
             RenderWindow::new(
-                (1200, 900), 
+                (1200, 900),
                 "Screensaver Test Window",
                 Style::NONE,
                 &settings,
