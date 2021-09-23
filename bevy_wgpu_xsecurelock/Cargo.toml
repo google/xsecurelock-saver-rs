@@ -1,0 +1,38 @@
+[package]
+name = "bevy_wgpu_xsecurelock"
+version = "0.5.0"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "A wgpu render backend for Bevy Engine, hacked to work with xsecurelock"
+homepage = "https://github.com/google/xsecurelock-saver-rs"
+repository = "https://github.com/google/xsecurelock-saver-rs"
+license = "APACHE2"
+keywords = ["bevy"]
+
+[features]
+default = ["bevy_winit"]
+trace = ["wgpu/trace"]
+
+[dependencies]
+# bevy
+bevy_app = "0.5.0"
+bevy_asset = "0.5.0"
+bevy_core = "0.5.0"
+bevy_diagnostic = "0.5.0"
+bevy_ecs = "0.5.0"
+bevy_render = "0.5.0"
+bevy_window = "0.5.0"
+bevy_winit = { optional = true, version = "0.5.0" }
+bevy_utils = "0.5.0"
+
+# other
+wgpu = "0.7"
+futures-lite = "1.4.0"
+crossbeam-channel = "0.5.0"
+crossbeam-utils = "0.8.1"
+parking_lot = "0.11.0"
+raw-window-handle = "0.3"
+x11 = { version = "2", features = ["xlib"] }

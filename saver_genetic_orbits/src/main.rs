@@ -12,71 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate lalrpop_util;
-
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 
-use gravity::{
-    GravitationalConstant,
-    GravitySource,
-    GravitySystem,
-    GravityTarget,
-};
-use circle_collision::{
-    BruteForceCollisionDetector,
-    ClearCollisionsInvolvingSceneEntities,
-    CircleCollider,
-    CollisionMatrix,
-    LastUpdateCollisions,
-};
+use crate::config::GeneticOrbitsConfig;
 
-#[cfg(feature = "graphical")]
-use xsecurelock_saver::engine::EngineBuilder;
-
-use physics::systems::{SympleticEulerForceStep, SympleticEulerVelocityStep};
-
-use crate::{
-    collision::{
-        DeleteCollidedPlanets,
-        MergeCollidedPlanets,
-        MergedInto,
-    },
-    config::{
-        GeneticOrbitsConfig,
-        generator::GeneratorConfig,
-        scoring::ScoringConfig,
-    },
-    statustracker::{ActiveWorld, ScoreKeeper},
-    storage::{
-        Storage,
-        sqlite::SqliteStorage,
-    },
-    worldgenerator::WorldGenerator,
-};
-
-mod collision;
+// mod collision;
 mod config;
 mod model;
 mod pruner;
 mod storage;
-mod statustracker;
+// mod statustracker;
 mod timer;
-mod worldgenerator;
+// mod worldgenerator;
 
 fn main() {
     simple_logger::init().unwrap();
 
-    let config = get_config();
-
-    let GeneticOrbitsConfig { database, generator, scoring } = config;
+    let GeneticOrbitsConfig { database, generator, scoring } = get_config();
 
     let stop_pruning = if let Some(max_scenarios_to_keep) = database.max_scenarios_to_keep {
         let storage = open_storage(database.database_path.as_ref().map(|s| &**s));
@@ -92,9 +47,7 @@ fn main() {
     let args = App::new("saver_genetic_orbits")
         .arg(Arg::with_name("headless")
             .long("headless")
-            .help(
-                "run in headless mode with no grpahics (no effect if not compiled with graphics \
-                enabled)"))
+            .help("run in headless mode with no grpahics"))
         .get_matches_from(
             // XSecureLock runs with "-root" for XScreenSaver compatibility, and we don't need it,
             // so skip it.
@@ -112,17 +65,13 @@ fn main() {
 fn run_saver<S: Storage + Default + Send + Sync + 'static>(
     headless: bool, scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
 ) {
-    if !headless {
-        #[cfg(feature = "graphical")] {
-            return run_saver_graphical(scoring, generator, storage);
-        }
-    } else if cfg!(not(feature = "graphical")) {
-        warn!("Headless flag has no effect if not compiled with graphics support");
+    if headless {
+        // run_saver_headless(scoring, generator, storage);
+    } else {
+        run_saver_graphical(scoring, generator, storage);
     }
-    run_saver_headless(scoring, generator, storage);
 }
 
-#[cfg(feature = "graphical")]
 fn run_saver_graphical<S: Storage + Default + Send + Sync + 'static>(
     scoring: ScoringConfig, generator: GeneratorConfig, storage: S,
 ) {
@@ -239,7 +188,7 @@ fn run_saver_headless<S: Storage + Default + Send + Sync + 'static>(
 }
 
 /// The screensaver folder name, used both for saving the database in the user data directory and
-/// for looking for configs in the 
+/// for looking for configs in the
 const SAVER_DIR: &'static str = "xsecurelock-saver-genetic-orbits";
 
 /// Checks for the config path and either tries to open it or opens the default location.

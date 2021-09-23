@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,71 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::env;
-
-use log::info;
-use sfml::graphics::{
-    Color,
-    RenderTarget,
-    RenderWindow,
-};
-use sfml::system::Vector2u;
-use sfml::window::{Style, ContextSettings};
-
-#[cfg(feature = "engine")]
+#[cfg(any(feature = "engine", doc))]
 pub mod engine;
-
-/// A screensaver which can be run on an SFML RenderTarget.
-pub trait Screensaver {
-    /// Runs one "tick" in the screensaver, with the update happening at the specified time.
-    fn update(&mut self);
-
-    /// Draw the screensaver on the specified target.
-    fn draw<T>(&self, target: &mut T) where T: RenderTarget;
-}
-
-pub fn run_saver<F, S>(create_saver: F)
-where F: FnOnce(Vector2u) -> S,
-      S: Screensaver {
-    sigint::init();
-
-    let mut window = open_window();
-    let mut saver = create_saver(window.size());
-
-    while !sigint::received_sigint() {
-        while let Some(_) = window.poll_event() {}
-
-        saver.update();
-
-        window.clear(Color::GREEN);
-        saver.draw(&mut window);
-        window.display();
-    }
-    info!("Shutting Down");
-}
-
-pub(crate) fn open_window() -> RenderWindow {
-    let mut settings = ContextSettings::default();
-    settings.set_antialiasing_level(4);
-    let window = match env::var("XSCREENSAVER_WINDOW") {
-        // Get the ID of the window from the $XSCREENSAVER_WINDOW environment variable, if
-        // available, otherwise create a window for testing.
-        Ok(window_id_str) => {
-            info!("Opening existing window");
-            let window_handle = window_id_str.parse()
-                .expect("window id was not an integer");
-            unsafe { RenderWindow::from_handle(window_handle, &settings) }
-        },
-        Err(_) => {
-            info!("Creating new window");
-            RenderWindow::new(
-                (1200, 900),
-                "Screensaver Test Window",
-                Style::NONE,
-                &settings,
-            )
-        },
-    };
-    info!("Opened SFML Window");
-    window
-}
+#[cfg(any(feature = "simple", doc))]
+pub mod simple;

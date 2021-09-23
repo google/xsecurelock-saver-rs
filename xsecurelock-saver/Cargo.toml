@@ -5,10 +5,13 @@ authors = ["Zachary Stewart <zstewart@google.com>"]
 edition = "2018"
 
 [features]
-engine = []
-serde-serialize = []
+engine = ["bevy", "bevy_wgpu_xsecurelock"]
+simple = ["sfml"]
+
 
 [dependencies]
+bevy = { version = "0.5.0", optional = true }
+bevy_wgpu_xsecurelock = { path = "../bevy_wgpu_xsecurelock", optional = true }
 log = "0.4"
-sfml = "0.16"
+sfml = { version = "0.16", optional = true }
 sigint = { path = "../sigint" }

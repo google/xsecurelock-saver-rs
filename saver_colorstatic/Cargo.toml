@@ -6,4 +6,4 @@ authors = ["Zachary Stewart <zstewart@google.com>"]
 [dependencies]
 rand = "0.5"
 sfml = "0.16"
-xsecurelock-saver = { path = "../xsecurelock-saver" }
+xsecurelock-saver = { path = "../xsecurelock-saver", features = ["simple"] }

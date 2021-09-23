@@ -16,16 +16,10 @@ extern crate rand;
 extern crate sfml;
 extern crate xsecurelock_saver;
 
-use sfml::graphics::{
-    Color,
-    Image,
-    RenderTarget,
-    Texture,
-    Sprite,
-};
+use sfml::graphics::{Color, Image, RenderTarget, Sprite, Texture};
 use sfml::system::Vector2u;
 
-use xsecurelock_saver::Screensaver;
+use xsecurelock_saver::simple::Screensaver;
 
 struct StaticScreensaver {
     img: Image,
@@ -33,8 +27,12 @@ struct StaticScreensaver {
 
 impl Screensaver for StaticScreensaver {
     fn update(&mut self) {
-        for Vector2u{x, y} in row_major_iterator(self.img.size()) {
-            self.img.set_pixel(x, y, Color::rgb(rand::random(), rand::random(), rand::random()));
+        for Vector2u { x, y } in row_major_iterator(self.img.size()) {
+            self.img.set_pixel(
+                x,
+                y,
+                Color::rgb(rand::random(), rand::random(), rand::random()),
+            );
         }
     }
 
@@ -47,13 +45,18 @@ impl Screensaver for StaticScreensaver {
 }
 
 fn main() {
-    xsecurelock_saver::run_saver(
-        |screen_size| StaticScreensaver {
-            img: Image::new(screen_size.x, screen_size.y),
-        });
+    xsecurelock_saver::simple::run_saver(|screen_size| StaticScreensaver {
+        img: Image::new(screen_size.x, screen_size.y),
+    });
 }
 
-fn row_major_iterator<V>(size: V) -> impl Iterator<Item=Vector2u> where V: Into<Vector2u> {
-    let Vector2u { x: width, y: height } = size.into();
+fn row_major_iterator<V>(size: V) -> impl Iterator<Item = Vector2u>
+where
+    V: Into<Vector2u>,
+{
+    let Vector2u {
+        x: width,
+        y: height,
+    } = size.into();
     (0..height).flat_map(move |y| (0..width).map(move |x| Vector2u { x: x, y: y }))
 }

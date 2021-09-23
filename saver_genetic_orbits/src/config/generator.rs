@@ -61,7 +61,7 @@ impl Validation for GeneratorConfig {
         fix_invalid_helper(
             path, "create_new_scenario_probability", "must be in range (0, 1) (exclusive)",
             &mut self.create_new_scenario_probability,
-            |&v| v > 0. && v < 1., 
+            |&v| v > 0. && v < 1.,
             || Self::default().create_new_scenario_probability,
         );
         // join precomputes the total length, which guarantees exactly 1 allocation, whereas
@@ -128,7 +128,7 @@ impl Default for MutationParameters {
         }
     }
 }
-    
+
 impl Validation for MutationParameters {
     fn fix_invalid(&mut self, path: &str) {
         fix_invalid_helper(
