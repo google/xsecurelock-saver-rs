@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::str::FromStr;
 use std::fmt::{self, Write};
+use std::str::FromStr;
 
-use lalrpop_util::ParseError;
+use lalrpop_util::{lalrpop_mod, ParseError};
+use serde::{Deserialize, Serialize};
 
 use self::scoring_function_parser::ExpressionParser;
 
-lalrpop_mod!(scoring_function_parser, "/statustracker/scoring_function/scoring_function_parser.rs");
+lalrpop_mod!(
+    scoring_function_parser,
+    "/statustracker/scoring_function/scoring_function_parser.rs"
+);
 mod expression_serde;
 mod transforms;
 
@@ -53,55 +57,76 @@ impl Expression {
                 let left = left.eval(tick, total_mass, mass_count);
                 let right = right.eval(tick, total_mass, mass_count);
                 op.eval(left, right)
-            },
+            }
             Expression::UnaryOp(op, value) => {
                 let value = value.eval(tick, total_mass, mass_count);
                 op.eval(value)
-            },
+            }
         }
     }
 }
 
 impl Expression {
     fn parse_unsimplified(source: &str) -> Result<Self, String> {
-        ExpressionParser::new().parse(source).map_err(|err| match err {
-            ParseError::InvalidToken{location} => Self::build_error(
-                "Invalid token".to_owned(), location, source,
-            ),
-            ParseError::UnrecognizedToken{token: Some((location, tok, _)), expected} => 
-                Self::build_error(
+        ExpressionParser::new()
+            .parse(source)
+            .map_err(|err| match err {
+                ParseError::InvalidToken { location } => {
+                    Self::build_error("Invalid token".to_owned(), location, source)
+                }
+                ParseError::UnrecognizedToken {
+                    token: (location, tok, _),
+                    expected,
+                } => Self::build_error(
                     if expected.len() == 1 {
                         format!("Unexpected token {}; expected {}", tok, expected[0])
                     } else {
                         format!(
-                            "Unexpected token {}; expected one of {}", tok, expected.join(", "),
+                            "Unexpected token {}; expected one of {}",
+                            tok,
+                            expected.join(", "),
                         )
                     },
-                    location, source,
+                    location,
+                    source,
                 ),
-            ParseError::UnrecognizedToken{token: None, expected} => if expected.len() == 1 {
-                format!("Unexpected EOF; expected {}", expected[0])
-            } else {
-                format!("Unexpected EOF; expected one of {}", expected.join(", "))
-            },
-            ParseError::ExtraToken{token: (location, tok, _)} => Self::build_error(
-                format!("Unexpected extra token {}", tok), location, source,
-            ),
-            ParseError::User{error: (location, parse_err)} => Self::build_error(
-                format!("Error parsing float {}", parse_err), location, source,
-            ),
-        })
+                ParseError::UnrecognizedEOF { location, expected } => Self::build_error(
+                    if expected.len() == 1 {
+                        format!("Unexpected eof; expected {}", expected[0])
+                    } else {
+                        format!("Unexpected eof; expected one of {}", expected.join(", "),)
+                    },
+                    location,
+                    source,
+                ),
+                ParseError::ExtraToken {
+                    token: (location, tok, _),
+                } => Self::build_error(format!("Unexpected extra token {}", tok), location, source),
+                ParseError::User {
+                    error: (location, parse_err),
+                } => Self::build_error(
+                    format!("Error parsing float {}", parse_err),
+                    location,
+                    source,
+                ),
+            })
     }
 
     fn build_error(mut message: String, location: usize, source: &str) -> String {
         let (line_idx, col_idx, section) = Self::get_error_location(location, source);
-        write!(message, " on line {}, column {}\n{}\n", line_idx + 1, col_idx + 1, section)
-            .unwrap();
+        write!(
+            message,
+            " on line {}, column {}\n{}\n",
+            line_idx + 1,
+            col_idx + 1,
+            section
+        )
+        .unwrap();
         message.extend((0..col_idx).map(|_| ' '));
         message.push('^');
         message
     }
-    
+
     fn get_error_location(location: usize, source: &str) -> (usize, usize, &str) {
         let mut line_start_index = 0;
         for (line_idx, line) in source.split('\n').enumerate() {
@@ -157,9 +182,10 @@ impl fmt::Display for Expression {
                     write!(self_string, " {}", rhs)?;
                 }
                 f.pad(&self_string)
-            },
-            Expression::UnaryOp(op, val) if op.parenthesized_operand() => 
-                f.pad(&format!("{}({})", op, val)),
+            }
+            Expression::UnaryOp(op, val) if op.parenthesized_operand() => {
+                f.pad(&format!("{}({})", op, val))
+            }
             Expression::UnaryOp(op, val) => f.pad(&format!("{}{}", op, val)),
         }
     }
@@ -241,7 +267,7 @@ impl UnaryOperator {
     fn parenthesized_operand(self) -> bool {
         match self {
             UnaryOperator::Positive | UnaryOperator::Negative => false,
-            _ =>  true,
+            _ => true,
         }
     }
 }
@@ -257,13 +283,12 @@ impl fmt::Display for UnaryOperator {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use self::Expression::*;
     use self::BinaryOperator::*;
+    use self::Expression::*;
     use self::UnaryOperator::*;
+    use super::*;
 
     const TICK: f64 = 9.;
     const TOTAL_MASS: f64 = 486.8;
@@ -295,27 +320,42 @@ mod tests {
 
     #[test]
     fn eval_multiply() {
-        assert_eval(BinaryOp(Box::new(Tick), Multiply, Box::new(Constant(2.))), TICK * 2.);
+        assert_eval(
+            BinaryOp(Box::new(Tick), Multiply, Box::new(Constant(2.))),
+            TICK * 2.,
+        );
     }
 
     #[test]
     fn eval_add() {
-        assert_eval(BinaryOp(Box::new(Tick), Add, Box::new(Constant(2.))), TICK + 2.);
+        assert_eval(
+            BinaryOp(Box::new(Tick), Add, Box::new(Constant(2.))),
+            TICK + 2.,
+        );
     }
 
     #[test]
     fn eval_subtract() {
-        assert_eval(BinaryOp(Box::new(Tick), Subtract, Box::new(Constant(2.))), TICK - 2.);
+        assert_eval(
+            BinaryOp(Box::new(Tick), Subtract, Box::new(Constant(2.))),
+            TICK - 2.,
+        );
     }
 
     #[test]
     fn eval_divide() {
-        assert_eval(BinaryOp(Box::new(Tick), Divide, Box::new(Constant(2.))), TICK / 2.);
+        assert_eval(
+            BinaryOp(Box::new(Tick), Divide, Box::new(Constant(2.))),
+            TICK / 2.,
+        );
     }
 
     #[test]
     fn eval_exponent() {
-        assert_eval(BinaryOp(Box::new(Tick), Exponent, Box::new(Constant(2.))), TICK.powf(2.));
+        assert_eval(
+            BinaryOp(Box::new(Tick), Exponent, Box::new(Constant(2.))),
+            TICK.powf(2.),
+        );
     }
 
     #[test]
@@ -344,11 +384,7 @@ mod tests {
             UnaryOp(
                 Negative,
                 Box::new(BinaryOp(
-                    Box::new(BinaryOp(
-                        Box::new(Tick),
-                        Multiply,
-                        Box::new(Constant(8.)),
-                    )),
+                    Box::new(BinaryOp(Box::new(Tick), Multiply, Box::new(Constant(8.)))),
                     Multiply,
                     Box::new(BinaryOp(
                         Box::new(Constant(1.)),
@@ -365,7 +401,7 @@ mod tests {
                     )),
                 )),
             ),
-            -(TICK * 8. * (1. + TOTAL_MASS.powf(MASS_COUNT / 1.24)))
+            -(TICK * 8. * (1. + TOTAL_MASS.powf(MASS_COUNT / 1.24))),
         );
     }
 
@@ -467,14 +503,20 @@ mod tests {
     #[test]
     fn parse_ln() {
         let expected = ln(2);
-        assert_eq!(Expression::parse_unsimplified("ln ( 2 )"), Ok(expected.clone()));
+        assert_eq!(
+            Expression::parse_unsimplified("ln ( 2 )"),
+            Ok(expected.clone())
+        );
         assert_eq!(Expression::parse_unsimplified("ln(2)"), Ok(expected));
     }
 
     #[test]
     fn parse_log() {
         let expected = log(2);
-        assert_eq!(Expression::parse_unsimplified("log ( 2)"), Ok(expected.clone()));
+        assert_eq!(
+            Expression::parse_unsimplified("log ( 2)"),
+            Ok(expected.clone())
+        );
         assert_eq!(Expression::parse_unsimplified("log(2)"), Ok(expected));
     }
 
@@ -494,22 +536,40 @@ mod tests {
             Ok(add(neg(neg(1)), neg(pos(neg(2))))),
         );
 
-        assert_eq!(Expression::parse_unsimplified("-ln(-2)"), Ok(neg(ln(neg(2)))));
-        assert_eq!(Expression::parse_unsimplified("-log(-ln(-2))"), Ok(neg(log(neg(ln(neg(2)))))));
+        assert_eq!(
+            Expression::parse_unsimplified("-ln(-2)"),
+            Ok(neg(ln(neg(2))))
+        );
+        assert_eq!(
+            Expression::parse_unsimplified("-log(-ln(-2))"),
+            Ok(neg(log(neg(ln(neg(2))))))
+        );
     }
 
     #[test]
     fn parse_unary_and_binary() {
         let expected = sub(neg(1), neg(2));
-        assert_eq!(Expression::parse_unsimplified("-1--2"), Ok(expected.clone()));
-        assert_eq!(Expression::parse_unsimplified("-1 - -2"), Ok(expected.clone()));
-        assert_eq!(Expression::parse_unsimplified("-10e-1 - -200e-2"), Ok(expected));
+        assert_eq!(
+            Expression::parse_unsimplified("-1--2"),
+            Ok(expected.clone())
+        );
+        assert_eq!(
+            Expression::parse_unsimplified("-1 - -2"),
+            Ok(expected.clone())
+        );
+        assert_eq!(
+            Expression::parse_unsimplified("-10e-1 - -200e-2"),
+            Ok(expected)
+        );
     }
 
     #[test]
     fn parse_precedence() {
         let expected = add(
-            sub(add(neg(1), div(mul(2, 3), exp(TotalMass, 4))), mul(pos(Tick), neg(1))),
+            sub(
+                add(neg(1), div(mul(2, 3), exp(TotalMass, 4))),
+                mul(pos(Tick), neg(1)),
+            ),
             mul(exp(2, neg(9)), 5),
         );
         // (((-1) + ((2*3)/(total_mass^4))) - ((+tick)*(-1))) + ((2^(-9))*5)
@@ -518,7 +578,10 @@ mod tests {
             Ok(expected),
         );
 
-        assert_eq!(Expression::parse_unsimplified("-ln(2)^3"), Ok(exp(neg(ln(2)), 3)));
+        assert_eq!(
+            Expression::parse_unsimplified("-ln(2)^3"),
+            Ok(exp(neg(ln(2)), 3))
+        );
     }
 
     #[test]
@@ -526,18 +589,39 @@ mod tests {
         assert_eq!(Expression::parse_unsimplified("-(1+2)"), Ok(neg(add(1, 2))));
         assert_eq!(Expression::parse_unsimplified("-1+2"), Ok(add(neg(1), 2)));
 
-        assert_eq!(Expression::parse_unsimplified("1+2*3"), Ok(add(1, mul(2, 3))));
-        assert_eq!(Expression::parse_unsimplified("(1+2)*3"), Ok(mul(add(1, 2), 3)));
+        assert_eq!(
+            Expression::parse_unsimplified("1+2*3"),
+            Ok(add(1, mul(2, 3)))
+        );
+        assert_eq!(
+            Expression::parse_unsimplified("(1+2)*3"),
+            Ok(mul(add(1, 2), 3))
+        );
 
-        assert_eq!(Expression::parse_unsimplified("1*2^3+4"), Ok(add(mul(1, exp(2, 3)), 4)));
-        assert_eq!(Expression::parse_unsimplified("(1*2)^3+4"), Ok(add(exp(mul(1, 2), 3), 4)));
-        assert_eq!(Expression::parse_unsimplified("1*2^(3+4)"), Ok(mul(1, exp(2, add(3, 4)))));
-        assert_eq!(Expression::parse_unsimplified("(1*2)^(3+4)"), Ok(exp(mul(1, 2), add(3, 4))));
+        assert_eq!(
+            Expression::parse_unsimplified("1*2^3+4"),
+            Ok(add(mul(1, exp(2, 3)), 4))
+        );
+        assert_eq!(
+            Expression::parse_unsimplified("(1*2)^3+4"),
+            Ok(add(exp(mul(1, 2), 3), 4))
+        );
+        assert_eq!(
+            Expression::parse_unsimplified("1*2^(3+4)"),
+            Ok(mul(1, exp(2, add(3, 4))))
+        );
+        assert_eq!(
+            Expression::parse_unsimplified("(1*2)^(3+4)"),
+            Ok(exp(mul(1, 2), add(3, 4)))
+        );
     }
 
     #[test]
     fn parse_nested_parens() {
-        assert_eq!(Expression::parse_unsimplified("1+2*3^-4"), Ok(add(1, mul(2, exp(3, neg(4))))));
+        assert_eq!(
+            Expression::parse_unsimplified("1+2*3^-4"),
+            Ok(add(1, mul(2, exp(3, neg(4)))))
+        );
         assert_eq!(
             Expression::parse_unsimplified("((1+2)*3)^-4"),
             Ok(exp(mul(add(1, 2), 3), neg(4))),
@@ -654,7 +738,10 @@ mod tests {
 
     #[test]
     fn display_precedence_with_unary() {
-        assert_display(mul(add(neg(3), log(4)), ln(add(Tick, 1))), "(-3 + log(4)) * ln(tick + 1)");
+        assert_display(
+            mul(add(neg(3), log(4)), ln(add(Tick, 1))),
+            "(-3 + log(4)) * ln(tick + 1)",
+        );
     }
 
     fn assert_display(expr: Expression, expected: &str) {
@@ -662,11 +749,15 @@ mod tests {
     }
 
     impl From<f64> for Expression {
-        fn from(val: f64) -> Self { Constant(val) }
+        fn from(val: f64) -> Self {
+            Constant(val)
+        }
     }
 
     impl From<u64> for Expression {
-        fn from(val: u64) -> Self { Constant(val as f64) }
+        fn from(val: u64) -> Self {
+            Constant(val as f64)
+        }
     }
 
     pub(super) fn add<L: Into<Expression>, R: Into<Expression>>(lhs: L, rhs: R) -> Expression {

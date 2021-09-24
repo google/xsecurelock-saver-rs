@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use bevy::{
-    prelude::*,
-    render::camera::{Camera, PerspectiveProjection},
-};
+use bevy::prelude::*;
+use bevy::render::camera::{Camera, PerspectiveProjection};
 use xsecurelock_saver::engine::XSecurelockSaverPlugins;
 
 fn main() {
     App::build()
+        .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.9)))
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(XSecurelockSaverPlugins)
         .add_startup_system(setup.system())

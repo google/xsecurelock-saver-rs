@@ -3,7 +3,7 @@ members = [
   "bevy_wgpu_xsecurelock",
   "saver_bevymin",
   "saver_colorstatic",
-#  "saver_genetic_orbits",
+  "saver_genetic_orbits",
   "saver_sfmlrect",
   "sigint",
   "xsecurelock-saver",

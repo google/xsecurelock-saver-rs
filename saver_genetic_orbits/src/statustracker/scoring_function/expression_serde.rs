@@ -19,7 +19,8 @@ mod ser {
 
     impl Serialize for Expression {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where S: Serializer,
+        where
+            S: Serializer,
         {
             serializer.serialize_str(&format!("{}", self))
         }
@@ -27,14 +28,15 @@ mod ser {
 }
 
 mod de {
-    use serde::de::{Deserialize, Deserializer, Visitor, Error};
+    use serde::de::{Deserialize, Deserializer, Error, Visitor};
     use std::fmt;
-    
+
     use crate::statustracker::scoring_function::Expression;
-    
+
     impl<'de> Deserialize<'de> for Expression {
         fn deserialize<D>(deserializer: D) -> Result<Expression, D::Error>
-            where D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
         {
             deserializer.deserialize_str(ExpressionVisitor)
         }
@@ -85,13 +87,9 @@ mod de {
         fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
             Ok(Expression::Constant(v))
         }
-        
+
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
             v.parse().map_err(E::custom)
-        }
-
-        fn visit_borrowed_str<E: Error>(self, v: &'de str) -> Result<Self::Value, E> {
-            self.visit_str(v)
         }
 
         fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {

@@ -14,10 +14,10 @@
 
 //! Contains configuration structs for the scoring system.
 
-use crate::{
-    config::{Validation, fix_invalid_helper},
-    statustracker::ScoringFunction,
-};
+use serde::de::{Error, Unexpected};
+use serde::{Deserialize, Deserializer, Serialize};
+
+use crate::statustracker::ScoringFunction;
 
 /// Tuning parameters for world scoring.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,19 +49,6 @@ impl Default for ScoringConfig {
     }
 }
 
-impl Validation for ScoringConfig {
-    fn fix_invalid(&mut self, path: &str) {
-        fix_invalid_helper(
-            path, "scored_ticks", "must be > 0",
-            &mut self.scored_ticks,
-            |&v| v > 0,
-            || Self::default().scored_ticks,
-        );
-        self.scored_area.fix_invalid(&[path, "scored_area"].join("."));
-        // no validation for per_frame_scoring.
-    }
-}
-
 /// Defines the area where planets are actually scored. Area is centered on the origin, and planets
 /// outside of it don't get any score. Note that the screen is scaled on startup, so the units are
 /// *not* pixels. In general the screen is set up so that the height is 2000 units and the width is
@@ -79,11 +66,11 @@ impl Validation for ScoringConfig {
 pub struct ScoredArea {
     // TODO(zstewar1): use a Range<Vector> for the scored area.
     /// The width of the scored region. Defaults to 4000.
+    #[serde(deserialize_with = "scored_area_wh_deserialize")]
     pub width: f32,
     /// The height of the scored region. Defaults to 4000.
+    #[serde(deserialize_with = "scored_area_wh_deserialize")]
     pub height: f32,
-    /// Whether to scale the width based on the aspect ratio. Defaults to false.
-    pub scale_width_by_aspect: bool,
 }
 
 impl Default for ScoredArea {
@@ -91,25 +78,22 @@ impl Default for ScoredArea {
         ScoredArea {
             width: 4000.,
             height: 4000.,
-            scale_width_by_aspect: Default::default(),
         }
     }
 }
 
-impl Validation for ScoredArea {
-    fn fix_invalid(&mut self, path: &str) {
-        fix_invalid_helper(
-            path, "width", "must be >= 0",
-            &mut self.width,
-            |&v| v >= 0.,
-            || Self::default().width,
-        );
-        fix_invalid_helper(
-            path, "height", "must be >= 0",
-            &mut self.height,
-            |&v| v >= 0.,
-            || Self::default().height,
-        );
-        // no validation for scale_width_by_aspect
+/// Deserializes the width or height of ScoredArea, flipping negatives and changing 0 to 4000.
+fn scored_area_wh_deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let val = f32::deserialize(deserializer)?;
+    if val <= 0.0 {
+        Err(D::Error::invalid_value(
+            Unexpected::Float(val as f64),
+            &"a float > 0",
+        ))
+    } else {
+        Ok(val)
     }
 }

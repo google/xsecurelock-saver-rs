@@ -14,6 +14,10 @@
 
 //! Contains configuration structs for the database.
 
+use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
+
 /// Configuration parameters for the Sqlite Database.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
@@ -22,10 +26,11 @@ pub struct DatabaseConfig {
     /// location must be writable. Saver will never fall back to an in-memory database if this is
     /// set.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub database_path: Option<String>,
+    pub database_path: Option<PathBuf>,
 
     /// Sets the cap for the number of scenarios to keep in the database. Set to None for
     /// unlimited. Defaults to 1,000,000.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_scenarios_to_keep: Option<u64>,
 
     /// How often (in seconds) to prune excess scenarios while running normally. Defaults to every

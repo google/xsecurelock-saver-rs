@@ -14,6 +14,10 @@
 
 //! Contains structs used for configuring the screensaver.
 
+use bevy::prelude::*;
+use figment::providers::{Format, Serialized, Yaml};
+use figment::Figment;
+
 use self::database::DatabaseConfig;
 use self::generator::GeneratorConfig;
 use self::scoring::ScoringConfig;
@@ -23,48 +27,39 @@ pub mod generator;
 pub mod scoring;
 pub mod util;
 
-/// Internal trait for config validation.
-trait Validation {
-    /// Log a warning about invalid configs and replace them with default values. path is used to
-    /// provide an exact path to each invalid item.
-    fn fix_invalid(&mut self, path: &str);
-}
+/// The screensaver folder name, used both for saving the database in the user data directory and
+/// for looking for configs in the
+const SAVER_DIR: &'static str = "xsecurelock-saver-genetic-orbits";
 
-fn fix_invalid_helper<T, F>(
-    path: &str, name: &str, requirement_desc: &str, 
-    source: &mut T, check_valid: F, default: fn() -> T,
-) where 
-    T: ::std::fmt::Debug,
-    F: FnOnce(&T) -> bool
-{
-    if !check_valid(source) {
-        let old = ::std::mem::replace(source, default());
-        warn!(
-            "{}.{} {}, but was {:?}; reset to default of {:?}.",
-            path, name, requirement_desc, old, source,
-        );
-    }
-}
+/// Adds figment-based configs.
+pub struct ConfigPlugin;
 
-/// Global configuration for the Genetic Orbits screensaver.
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-#[serde(default)]
-pub struct GeneticOrbitsConfig {
-    /// Parameters for the database.
-    pub database: DatabaseConfig,
+impl Plugin for ConfigPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        let mut figment = Figment::new();
 
-    /// Parameters for the generator/mutator.
-    pub generator: GeneratorConfig,
+        if let Some(mut data_dir) = dirs::data_dir() {
+            data_dir.push(SAVER_DIR);
+            data_dir.push("scenario-db.sqlite3");
+            figment = figment.merge(Serialized::defaults(DatabaseConfig {
+                database_path: Some(data_dir),
+                ..Default::default()
+            }));
+        }
 
-    /// Parameters affecting scoring.
-    pub scoring: ScoringConfig,
-}
+        if let Some(mut config_dir) = dirs::config_dir() {
+            config_dir.push(SAVER_DIR);
+            config_dir.push("config.yaml");
+            figment = figment.merge(Yaml::file(config_dir));
+        }
 
-impl GeneticOrbitsConfig {
-    /// Log a warning about invalid configs and replace them with default values. 
-    pub fn fix_invalid(&mut self) {
-        // database has no validation.
-        self.generator.fix_invalid("generator");
-        self.scoring.fix_invalid("scoring");
+        if let Some(mut home_dir) = dirs::home_dir() {
+            home_dir.push(".xsecurelock-saver-genetic-orbits.yaml");
+            figment = figment.merge(Yaml::file(home_dir));
+        }
+
+        app.insert_resource(figment.extract::<DatabaseConfig>().unwrap())
+            .insert_resource(figment.extract::<ScoringConfig>().unwrap())
+            .insert_resource(figment.extract::<GeneratorConfig>().unwrap());
     }
 }

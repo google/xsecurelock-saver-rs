@@ -20,7 +20,10 @@ pub trait Visitor {
     fn visit(&mut self, node: &Expression) -> Option<Expression>;
 }
 
-impl<F> Visitor for F where F: FnMut(&Expression) -> Option<Expression> {
+impl<F> Visitor for F
+where
+    F: FnMut(&Expression) -> Option<Expression>,
+{
     fn visit(&mut self, node: &Expression) -> Option<Expression> {
         self(node)
     }
@@ -35,9 +38,9 @@ impl Expression {
             Expression::BinaryOp(lhs, _, rhs) => {
                 lhs.transform_postorder(visitor);
                 rhs.transform_postorder(visitor);
-            },
+            }
             Expression::UnaryOp(_, value) => value.transform_postorder(visitor),
-            _ => {},
+            _ => {}
         }
         if let Some(replacement) = visitor.visit(self) {
             *self = replacement;
@@ -58,8 +61,9 @@ fn precompute_and_remove_useless_operations(node: &Expression) -> Option<Express
     match node {
         Expression::BinaryOp(lhs, op, rhs) => match (&**lhs, op, &**rhs) {
             // If both sides are constants, we can always just evaluate it now.
-            (Expression::Constant(lhs), op, Expression::Constant(rhs)) => 
-                Some(Expression::Constant(op.eval(*lhs, *rhs))),
+            (Expression::Constant(lhs), op, Expression::Constant(rhs)) => {
+                Some(Expression::Constant(op.eval(*lhs, *rhs)))
+            }
 
             // Special case simplifications for when the contents are *not* both constants:
             // Note: we avoid optimizations which could hide NaN propagation, such as
@@ -68,40 +72,49 @@ fn precompute_and_remove_useless_operations(node: &Expression) -> Option<Express
 
             // Multiplication Simplifications:
             // Multiply By 1 -> Other subtree.
-            (Expression::Constant(cons), BinaryOperator::Multiply, rhs) if *cons == 1. =>
-                Some(rhs.clone()),
-            (lhs, BinaryOperator::Multiply, Expression::Constant(cons)) if *cons == 1. =>
-                Some(lhs.clone()),
+            (Expression::Constant(cons), BinaryOperator::Multiply, rhs) if *cons == 1. => {
+                Some(rhs.clone())
+            }
+            (lhs, BinaryOperator::Multiply, Expression::Constant(cons)) if *cons == 1. => {
+                Some(lhs.clone())
+            }
 
             // Division Simplifications:
             // Divide by 1 -> Numerator.
-            (lhs, BinaryOperator::Divide, Expression::Constant(cons)) if *cons == 1. =>
-                Some(lhs.clone()),
+            (lhs, BinaryOperator::Divide, Expression::Constant(cons)) if *cons == 1. => {
+                Some(lhs.clone())
+            }
 
             // Addition Simplifications:
             // Add 0 -> Other subtree.
-            (Expression::Constant(cons), BinaryOperator::Add, rhs) if *cons == 0. =>
-                Some(rhs.clone()),
-            (lhs, BinaryOperator::Add, Expression::Constant(cons)) if *cons == 0. =>
-                Some(lhs.clone()),
+            (Expression::Constant(cons), BinaryOperator::Add, rhs) if *cons == 0. => {
+                Some(rhs.clone())
+            }
+            (lhs, BinaryOperator::Add, Expression::Constant(cons)) if *cons == 0. => {
+                Some(lhs.clone())
+            }
 
             // Subtraction Simplifications:
             // Subtract from zero -> Negative other subtree.
-            (Expression::Constant(cons), BinaryOperator::Subtract, rhs) if *cons == 0. =>
-                Some(Expression::UnaryOp(UnaryOperator::Negative, Box::new(rhs.clone()))),
+            (Expression::Constant(cons), BinaryOperator::Subtract, rhs) if *cons == 0. => Some(
+                Expression::UnaryOp(UnaryOperator::Negative, Box::new(rhs.clone())),
+            ),
             // Subtract zero -> Other subtree.
-            (lhs, BinaryOperator::Subtract, Expression::Constant(cons)) if *cons == 0. =>
-                Some(lhs.clone()),
+            (lhs, BinaryOperator::Subtract, Expression::Constant(cons)) if *cons == 0. => {
+                Some(lhs.clone())
+            }
 
             // Exponent Simplifications:
             // Raised to the power of 1 -> Other subtree.
-            (lhs, BinaryOperator::Exponent, Expression::Constant(cons)) if *cons == 1. =>
-                Some(lhs.clone()),
+            (lhs, BinaryOperator::Exponent, Expression::Constant(cons)) if *cons == 1. => {
+                Some(lhs.clone())
+            }
             // Raised to the power of 0 -> Constant 1. Unlike multiplication and division, powf(0)
-            // returns 1 even for NaN and infinity, probably because this is part of the 
+            // returns 1 even for NaN and infinity, probably because this is part of the
             // mathematical definition of exponentiation.
-            (_, BinaryOperator::Exponent, Expression::Constant(cons)) if *cons == 0. => 
-                Some(Expression::Constant(1.)),
+            (_, BinaryOperator::Exponent, Expression::Constant(cons)) if *cons == 0. => {
+                Some(Expression::Constant(1.))
+            }
 
             // No transforms for anything else.
             _ => None,
@@ -114,8 +127,9 @@ fn precompute_and_remove_useless_operations(node: &Expression) -> Option<Express
             (UnaryOperator::Positive, val) => Some(val.clone()),
 
             // Remove nested pairs of negative operators.
-            (UnaryOperator::Negative, Expression::UnaryOp(UnaryOperator::Negative, inner)) =>
-                Some((**inner).clone()),
+            (UnaryOperator::Negative, Expression::UnaryOp(UnaryOperator::Negative, inner)) => {
+                Some((**inner).clone())
+            }
 
             // No transforms for anything else.
             _ => None,
@@ -126,9 +140,9 @@ fn precompute_and_remove_useless_operations(node: &Expression) -> Option<Express
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use super::super::tests::*;
     use self::Expression::*;
+    use super::super::tests::*;
+    use super::super::*;
 
     #[test]
     fn simplify_nop_for_atoms() {
