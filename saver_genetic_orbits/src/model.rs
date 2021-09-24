@@ -13,9 +13,10 @@
 // limitations under the License.
 
 //! Model of the start-state of the world. Identifies a unique world.
-use std::f32;
+use std::f32::consts::PI;
 
-use physics::components::Vector;
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct Scenario {
@@ -52,8 +53,9 @@ impl World {
                 while right < self.planets.len() {
                     let total_radius = self.planets[left].radius() + self.planets[right].radius();
                     let total_radius_sqr = total_radius * total_radius;
-                    let dist_sqr = (self.planets[left].position - self.planets[right].position)
-                        .norm_squared();
+                    let dist_sqr = self.planets[left]
+                        .position
+                        .distance_squared(self.planets[right].position);
                     if dist_sqr < total_radius_sqr {
                         clean = false;
                         self.merge_planets(left, right);
@@ -85,14 +87,15 @@ impl World {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Planet {
-    pub position: Vector,
-    pub velocity: Vector,
+    pub position: Vec3,
+    pub velocity: Vec3,
     pub mass: f32,
 }
 
-const PLANET_DENSITY: f32 = 0.1;
-
 impl Planet {
+    /// Assumed density of planets.
+    pub const DENSITY: f32 = 0.1;
+
     /// Calculates the radius for a planet of the given mass.
     pub fn radius_from_mass(mass: f32) -> f32 {
         // Calculate radius as if this planet were a sphere with the given mass and density:
@@ -100,7 +103,7 @@ impl Planet {
         // M = V * D
         // M = 4/3 * pi * r^3 * D
         // 3M / (4 * pi * D) = r^3
-        (3. * mass / (4. * f32::consts::PI * PLANET_DENSITY)).cbrt()
+        (3. * mass / (4.0 * PI * Self::DENSITY)).cbrt()
     }
 
     /// Calculates the radius of this planet.
@@ -114,7 +117,7 @@ impl Planet {
         // V = 4/3 * pi * r^3
         // M = V * D
         // M = 4/3 * pi * r^3 * D
-        self.mass = 4./3. * f32::consts::PI * radius.powi(3) * PLANET_DENSITY;
+        self.mass = 4. / 3. * PI * radius.powi(3) * Self::DENSITY;
     }
 
     /// Merges the given other planet into this one.
@@ -137,24 +140,25 @@ impl Planet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::World;
 
     mod planet_tests {
         use super::*;
         #[test]
         fn test_merge_simple() {
             let mut left = Planet {
-                position: Vector::new(0., 0.),
-                velocity: Vector::new(0., 0.),
+                position: Vec3::new(0., 0., 0.),
+                velocity: Vec3::new(0., 0., 0.),
                 mass: 1.,
             };
             let right = Planet {
-                position: Vector::new(1., 0.),
-                velocity: Vector::new(0., 0.),
+                position: Vec3::new(1., 0., 0.),
+                velocity: Vec3::new(0., 0., 0.),
                 mass: 1.,
             };
             let expected = Planet {
-                position: Vector::new(0.5, 0.),
-                velocity: Vector::new(0., 0.),
+                position: Vec3::new(0.5, 0., 0.),
+                velocity: Vec3::new(0., 0., 0.),
                 mass: 2.,
             };
             left.merge(&right);
@@ -164,18 +168,18 @@ mod tests {
         #[test]
         fn test_merge_moving() {
             let mut left = Planet {
-                position: Vector::new(1., -5.),
-                velocity: Vector::new(3., 6.),
+                position: Vec3::new(1., -5., 0.),
+                velocity: Vec3::new(3., 6., 0.),
                 mass: 8.,
             };
             let right = Planet {
-                position: Vector::new(-9., 2.),
-                velocity: Vector::new(-7.,-2.),
+                position: Vec3::new(-9., 2., 0.),
+                velocity: Vec3::new(-7., -2., 0.),
                 mass: 24.,
             };
             let expected = Planet {
-                position: Vector::new(-6.5, 0.25),
-                velocity: Vector::new(-4.5, 0.),
+                position: Vec3::new(-6.5, 0.25, 0.),
+                velocity: Vec3::new(-4.5, 0., 0.),
                 mass: 32.,
             };
             left.merge(&right);
@@ -185,24 +189,23 @@ mod tests {
         #[test]
         fn test_merge_moving_order_independent() {
             let mut left = Planet {
-                position: Vector::new(-9., 2.),
-                velocity: Vector::new(-7.,-2.),
+                position: Vec3::new(-9., 2., 0.),
+                velocity: Vec3::new(-7., -2., 0.),
                 mass: 24.,
             };
             let right = Planet {
-                position: Vector::new(1., -5.),
-                velocity: Vector::new(3., 6.),
+                position: Vec3::new(1., -5., 0.),
+                velocity: Vec3::new(3., 6., 0.),
                 mass: 8.,
             };
             let expected = Planet {
-                position: Vector::new(-6.5, 0.25),
-                velocity: Vector::new(-4.5, 0.),
+                position: Vec3::new(-6.5, 0.25, 0.),
+                velocity: Vec3::new(-4.5, 0., 0.),
                 mass: 32.,
             };
             left.merge(&right);
             assert_eq!(left, expected);
         }
-
     }
 
     mod world_tests {
@@ -210,91 +213,98 @@ mod tests {
 
         #[test]
         fn test_merge_planets_simple() {
-            let mut world = World { planets: vec![
-                Planet {
-                    position: Vector::new(0., 0.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-                Planet {
-                    position: Vector::new(1., -5.),
-                    velocity: Vector::new(3., 6.),
-                    mass: 8.,
-                },
-                Planet {
-                    position: Vector::new(1., 0.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-                Planet {
-                    position: Vector::new(-9., 2.),
-                    velocity: Vector::new(-7.,-2.),
-                    mass: 24.,
-                },
-            ]};
-            let expected = World { planets: vec![
-                Planet {
-                    position: Vector::new(0., 0.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-                Planet {
-                    position: Vector::new(-6.5, 0.25),
-                    velocity: Vector::new(-4.5, 0.),
-                    mass: 32.,
-                },
-                Planet {
-                    position: Vector::new(1., 0.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-            ]};
+            let mut world = World {
+                planets: vec![
+                    Planet {
+                        position: Vec3::new(0., 0., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                    Planet {
+                        position: Vec3::new(1., -5., 0.),
+                        velocity: Vec3::new(3., 6., 0.),
+                        mass: 8.,
+                    },
+                    Planet {
+                        position: Vec3::new(1., 0., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                    Planet {
+                        position: Vec3::new(-9., 2., 0.),
+                        velocity: Vec3::new(-7., -2., 0.),
+                        mass: 24.,
+                    },
+                ],
+            };
+            let expected = World {
+                planets: vec![
+                    Planet {
+                        position: Vec3::new(0., 0., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                    Planet {
+                        position: Vec3::new(-6.5, 0.25, 0.),
+                        velocity: Vec3::new(-4.5, 0., 0.),
+                        mass: 32.,
+                    },
+                    Planet {
+                        position: Vec3::new(1., 0., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                ],
+            };
             world.merge_planets(1, 3);
             assert_eq!(world, expected);
         }
 
-
         #[test]
         fn test_merge_overlapping_simple() {
-            let mut world = World { planets: vec![
-                Planet {
-                    position: Vector::new(0., 0.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-                Planet {
-                    position: Vector::new(2., -10.),
-                    velocity: Vector::new(3., 6.),
-                    mass: 8.,
-                },
-                Planet {
-                    position: Vector::new(5., 5.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-                Planet {
-                    position: Vector::new(-2., -12.),
-                    velocity: Vector::new(-7.,-2.),
-                    mass: 24.,
-                },
-            ]};
-            let expected = World { planets: vec![
-                Planet {
-                    position: Vector::new(0., 0.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-                Planet {
-                    position: Vector::new(-1., -11.5),
-                    velocity: Vector::new(-4.5, 0.),
-                    mass: 32.,
-                },
-                Planet {
-                    position: Vector::new(5., 5.),
-                    velocity: Vector::new(0., 0.),
-                    mass: 1.,
-                },
-            ]};
+            let mut world = World {
+                planets: vec![
+                    Planet {
+                        position: Vec3::new(0., 0., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                    Planet {
+                        position: Vec3::new(2., -10., 0.),
+                        velocity: Vec3::new(3., 6., 0.),
+                        mass: 8.,
+                    },
+                    Planet {
+                        position: Vec3::new(5., 5., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                    Planet {
+                        position: Vec3::new(-2., -12., 0.),
+                        velocity: Vec3::new(-7., -2., 0.),
+                        mass: 24.,
+                    },
+                ],
+            };
+            let expected = World {
+                planets: vec![
+                    Planet {
+                        position: Vec3::new(0., 0., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                    Planet {
+                        position: Vec3::new(-1., -11.5, 0.),
+                        velocity: Vec3::new(-4.5, 0., 0.),
+                        mass: 32.,
+                    },
+                    Planet {
+                        position: Vec3::new(5., 5., 0.),
+                        velocity: Vec3::new(0., 0., 0.),
+                        mass: 1.,
+                    },
+                ],
+            };
             world.merge_overlapping_planets();
             assert_eq!(world, expected);
         }

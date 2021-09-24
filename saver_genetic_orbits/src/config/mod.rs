@@ -58,8 +58,16 @@ impl Plugin for ConfigPlugin {
             figment = figment.merge(Yaml::file(home_dir));
         }
 
-        app.insert_resource(figment.extract::<DatabaseConfig>().unwrap())
-            .insert_resource(figment.extract::<ScoringConfig>().unwrap())
-            .insert_resource(figment.extract::<GeneratorConfig>().unwrap());
+        let dbconf = figment.extract::<DatabaseConfig>().unwrap();
+        let scoreconf = figment.extract::<ScoringConfig>().unwrap();
+        let genconf = figment.extract::<GeneratorConfig>().unwrap();
+
+        info!("Loaded database config: {:?}", dbconf);
+        info!("Loaded score config: {:?}", scoreconf);
+        info!("Loaded generator config: {:?}", genconf);
+
+        app.insert_resource(dbconf)
+            .insert_resource(scoreconf)
+            .insert_resource(genconf);
     }
 }

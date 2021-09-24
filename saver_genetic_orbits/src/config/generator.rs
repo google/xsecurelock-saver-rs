@@ -156,12 +156,9 @@ impl Default for NewWorldParameters {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct NewPlanetParameters {
-    /// The distribution the generated planet's start x position. Defaults to [-2000, 2000] in
-    pub start_x: UniformDistribution,
-    /// The distribution the generated planet's start y position. Defaults to [-2000, 2000] in
-    pub start_y: UniformDistribution,
-    /// The distribution the generated planet's start z position. Defaults to [-2000, 2000] in
-    pub start_z: UniformDistribution,
+    /// The distribution the generated planet's start position. Defaults to [-2000, 2000] in each
+    /// axis.
+    pub start_position: SerVec<UniformDistribution>,
     /// Controls the distribution of starting velocities for planets. Defaults to mean: 0,
     /// stddev:
     /// 20 in both x and y.
@@ -178,17 +175,19 @@ pub struct NewPlanetParameters {
 impl Default for NewPlanetParameters {
     fn default() -> Self {
         NewPlanetParameters {
-            start_x: UniformDistribution {
-                min: -2000.0,
-                max: 2000.0,
-            },
-            start_y: UniformDistribution {
-                min: -2000.0,
-                max: 2000.0,
-            },
-            start_z: UniformDistribution {
-                min: -2000.0,
-                max: 2000.0,
+            start_position: SerVec {
+                x: UniformDistribution {
+                    min: -500.0,
+                    max: 500.0,
+                },
+                y: UniformDistribution {
+                    min: -500.0,
+                    max: 500.0,
+                },
+                z: UniformDistribution {
+                    min: -500.0,
+                    max: 500.0,
+                },
             },
             start_velocity: SerVec {
                 x: NormalDistribution {

@@ -14,48 +14,22 @@
 
 use std::str::FromStr;
 
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// use std::marker::PhantomData;
-// use std::mem;
-// use std::str::FromStr;
-//
-// use specs::{
-//     Join,
-//     Read,
-//     ReadStorage,
-//     System,
-//     Write,
-// };
-//
-// use physics::components::{
-//     Mass,
-//     Position,
-// };
-// use scene_management::{components::Deleted, resources::SceneChange};
-
-// use crate::{
-//     config::scoring::ScoringConfig,
-//     model::{Scenario, World},
-//     storage::Storage,
-//     worldgenerator::WorldGenerator,
-// };
+use crate::model::{Scenario, World};
 
 use self::scoring_function::Expression;
 
 mod scoring_function;
 
-// mod area_scaling {
-//     use specs::Read;
-//     use xsecurelock_saver::engine::resources::draw::View;
-//
-//     pub(super) type AreaScalingData<'a> = Read<'a, View>;
-//
-//     pub(super) fn get_aspect<'a>(view: &AreaScalingData<'a>) -> f32 {
-//         // x / y = w / w_0; w_0 * x / y = w
-//         view.size.x / view.size.y
-//     }
-// }"
+pub struct ScoringPlugin;
+
+impl Plugin for ScoringPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.insert_resource(ActiveWorld::default());
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(transparent)]
@@ -76,29 +50,39 @@ impl FromStr for ScoringFunction {
     }
 }
 
-// /// Resource for tracking the status of the currently active scene.
-// pub struct ActiveWorld {
-//     /// The world being scored.
-//     pub world: World,
-//     /// The parent of the world being scored.
-//     pub parent: Option<Scenario>,
-//     /// The score the world has received so far.
-//     pub cumulative_score: f64,
-//     /// The number of physics ticks that the world has been scored on so far.
-//     pub ticks_completed: u32,
-// }
-//
-// impl Default for ActiveWorld {
-//     fn default() -> Self {
-//         ActiveWorld {
-//             world: World { planets: vec![] },
-//             parent: None,
-//             cumulative_score: 0.,
-//             ticks_completed: 0,
-//         }
-//     }
-// }
-//
+/// Resource for tracking the status of the currently active scene.
+pub struct ActiveWorld {
+    /// The world being scored.
+    pub world: World,
+    /// The parent of the world being scored.
+    pub parent: Option<Scenario>,
+    /// The score the world has received so far.
+    pub cumulative_score: f64,
+    /// The number of physics ticks that the world has been scored on so far.
+    pub ticks_completed: u32,
+}
+
+impl ActiveWorld {
+    /// Reset the active world for a new scenario.
+    pub fn start(&mut self, world: World, parent: Option<Scenario>) {
+        self.world = world;
+        self.parent = parent;
+        self.cumulative_score = 0.0;
+        self.ticks_completed = 0;
+    }
+}
+
+impl Default for ActiveWorld {
+    fn default() -> Self {
+        ActiveWorld {
+            world: World { planets: vec![] },
+            parent: None,
+            cumulative_score: 0.,
+            ticks_completed: 0,
+        }
+    }
+}
+
 // #[derive(Default)]
 // pub struct ScoreKeeper<T>(PhantomData<T>);
 //

@@ -17,7 +17,10 @@ use bevy_rapier3d::prelude::*;
 use xsecurelock_saver::engine::XSecurelockSaverPlugins;
 
 mod config;
+mod model;
 mod statustracker;
+mod storage;
+mod world;
 mod worldgenerator;
 
 fn main() {
@@ -26,14 +29,17 @@ fn main() {
         .add_plugins(XSecurelockSaverPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(config::ConfigPlugin)
-        .add_state(GeneratorState::Generate)
+        .add_state(SaverState::Generate)
+        .add_plugin(storage::StoragePlugin)
         .add_plugin(worldgenerator::WorldGeneratorPlugin)
+        .add_plugin(statustracker::ScoringPlugin)
+        .add_plugin(world::WorldPlugin)
         .run();
 }
 
 /// Game state of the generator.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-enum GeneratorState {
+enum SaverState {
     /// Loading state, world will be replaced.
     Generate,
     /// Run the game.

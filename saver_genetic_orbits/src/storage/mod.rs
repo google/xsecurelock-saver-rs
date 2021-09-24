@@ -13,10 +13,57 @@
 // limitations under the License.
 
 use std::error::Error;
+use std::path::PathBuf;
 
+use bevy::prelude::*;
+
+use crate::config::database::DatabaseConfig;
 use crate::model::{Scenario, World};
 
+use self::pruner::Pruner;
+use self::sqlite::SqliteStorage;
+
+mod pruner;
 pub mod sqlite;
+
+pub struct StoragePlugin;
+
+impl Plugin for StoragePlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        let dbconfig: DatabaseConfig = app.world().get_resource().cloned().unwrap_or_default();
+
+        if let Some(keep) = dbconfig.max_scenarios_to_keep {
+            let prune_conn = open_from_conf(dbconfig.database_path.as_ref());
+            app.insert_resource(Pruner::new(keep, prune_conn))
+                .insert_resource(PruneTimer(Timer::from_seconds(
+                    dbconfig.prune_interval_seconds as f32,
+                    true,
+                )))
+                .add_system(prune_sys.system());
+        }
+
+        let main_conn = open_from_conf(dbconfig.database_path.as_ref());
+        app.insert_resource(main_conn);
+    }
+}
+
+fn open_from_conf(path: Option<&PathBuf>) -> SqliteStorage {
+    match path {
+        Some(path) => SqliteStorage::open(path),
+        None => SqliteStorage::open_in_memory(),
+    }
+    .expect("Unable to open storage")
+}
+
+struct PruneTimer(Timer);
+
+fn prune_sys(time: Res<Time>, mut timer: ResMut<PruneTimer>, mut pruner: ResMut<Pruner>) {
+    timer.0.tick(time.delta());
+    if timer.0.finished() {
+        info!("Triggering prune");
+        pruner.prune();
+    }
+}
 
 /// Storage for models.
 // TODO(zstewart): fix sqlite storage with some thread local magic so that non-mutating methods can
@@ -38,7 +85,8 @@ pub trait Storage {
 
     /// Gets the nth scenario, in order of score (descending, so lower indexes are higher scoring
     /// scenarios). May return None if the index is outside the number of scenarios.
-    fn get_nth_scenario_by_score(&mut self, index: u64) -> Result<Option<Scenario>, Box<dyn Error>>;
+    fn get_nth_scenario_by_score(&mut self, index: u64)
+        -> Result<Option<Scenario>, Box<dyn Error>>;
 
     /// Removes the bottom scoring scenarios, keeping up to number_to_keep top scoring scenarios.
     /// Returns the number of scenarios pruned.
