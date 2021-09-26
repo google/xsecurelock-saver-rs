@@ -11,7 +11,7 @@ simple = ["sfml"]
 
 [dependencies]
 bevy = { version = "0.5.0", optional = true }
-bevy_wgpu_xsecurelock = { path = "../bevy_wgpu_xsecurelock", optional = true }
+bevy_wgpu_xsecurelock = { path = "../third_party/bevy_wgpu_xsecurelock", optional = true }
 log = "0.4"
 sfml = { version = "0.16", optional = true }
 sigint = { path = "../sigint" }

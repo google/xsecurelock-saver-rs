@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "bevy_wgpu_xsecurelock",
+  "third_party/bevy_wgpu_xsecurelock",
   "saver_bevymin",
   "saver_colorstatic",
   "saver_genetic_orbits",
