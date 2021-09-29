@@ -20,6 +20,7 @@
 use std::env;
 
 use bevy::app::{Events, ManualEventReader, PluginGroupBuilder};
+use bevy::asset::{AssetPlugin, AssetServerSettings};
 use bevy::prelude::*;
 use bevy::wgpu::WgpuPlugin;
 use bevy::window::{CreateWindow, WindowCreated, WindowPlugin};
@@ -36,10 +37,31 @@ impl PluginGroup for XSecurelockSaverPlugins {
         plugins
             .disable::<WinitPlugin>()
             .disable::<WgpuPlugin>()
+            .add_before::<AssetPlugin, _>(ConfigAssetsPlugin)
             .add_before::<WindowPlugin, _>(ConfigWindowPlugin)
             .add(bevy_wgpu_xsecurelock::WgpuPlugin)
             .add(CreateWindowPlugin)
             .add(RunnerPlugin);
+    }
+}
+
+const XSCREENSAVER_WINDOW: &str = "XSCREENSAVER_WINDOW";
+
+/// Adds an aset server config when running as a screensaver. Sets the asset location to the
+/// compile-time env variable `INSTALLED_SAVER_ASSET_PATH` when `XSCREENSAVER_WINDOW` is set.
+#[derive(Debug)]
+struct ConfigAssetsPlugin;
+
+impl Plugin for ConfigAssetsPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        const INSTALLED_ASSET_PATH: Option<&str> = option_env!("INSTALLED_SAVER_ASSET_PATH");
+        if let Some(path) = INSTALLED_ASSET_PATH {
+            if env::var_os(XSCREENSAVER_WINDOW).is_some() {
+                app.insert_resource(AssetServerSettings {
+                    asset_folder: path.to_string(),
+                });
+            }
+        }
     }
 }
 
@@ -49,7 +71,7 @@ struct ConfigWindowPlugin;
 impl Plugin for ConfigWindowPlugin {
     fn build(&self, app: &mut AppBuilder) {
         // Get the ID of the window from the $XSCREENSAVER_WINDOW environment variable, and attach a ExternalXWindow if so.
-        if let Ok(window_id_str) = env::var("XSCREENSAVER_WINDOW") {
+        if let Ok(window_id_str) = env::var(XSCREENSAVER_WINDOW) {
             info!("Opening existing window");
             let handle = window_id_str.parse().expect("window id was not an integer");
             let external_window = ExternalXWindow::new(handle);

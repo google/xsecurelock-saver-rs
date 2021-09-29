@@ -19,7 +19,8 @@ use bevy_rapier3d::na::{Point3, Vector3};
 use bevy_rapier3d::prelude::*;
 use rand_distr::{Distribution, Uniform};
 
-use crate::model::Planet;
+use crate::config::camera::CameraConfig;
+use crate::model::Planet as PlanetConfig;
 use crate::statustracker::ActiveWorld;
 use crate::SaverState;
 
@@ -35,7 +36,10 @@ impl Plugin for WorldPlugin {
             .add_system_set(
                 SystemSet::on_enter(SaverState::Run).with_system(spawn_planets.system()),
             )
-            .add_system_set(SystemSet::on_update(SaverState::Run).with_system(gravity.system()));
+            .add_system_set(SystemSet::on_update(SaverState::Run).with_system(gravity.system()))
+            .add_system_set(
+                SystemSet::on_exit(SaverState::Run).with_system(remove_planets.system()),
+            );
     }
 }
 
@@ -69,17 +73,19 @@ fn setup_camera_light(mut commands: Commands) {
 }
 
 /// rotate the camera around the origin.
-fn rotate_camera(mut query: Query<&mut Transform, With<PerspectiveProjection>>, time: Res<Time>) {
-    /// Distance from orign to place camera at.
-    const CAM_DIST: f32 = 1000.0;
-    const CAM_SPEED: f32 = 0.25;
-    let t = time.seconds_since_startup() as f32 * CAM_SPEED;
+fn rotate_camera(
+    mut query: Query<&mut Transform, With<PerspectiveProjection>>,
+    time: Res<Time>,
+    config: Res<CameraConfig>,
+) {
+    let t = time.seconds_since_startup() as f32 * config.rotation_speed;
     for mut camera in query.iter_mut() {
-        *camera = Transform::from_xyz(t.sin() * CAM_DIST, 0.0, t.cos() * CAM_DIST)
+        *camera = Transform::from_xyz(t.sin() * config.view_dist, 0.0, t.cos() * config.view_dist)
             .looking_at(Vec3::ZERO, Vec3::Y);
     }
 }
 
+/// Holds the sphere mesh used to render planets.
 struct PlanetMesh(Handle<Mesh>);
 
 impl FromWorld for PlanetMesh {
@@ -95,7 +101,11 @@ impl FromWorld for PlanetMesh {
     }
 }
 
-/// Marker to apply gravity
+/// Marker component to identify planets for scoring and deletion.
+#[derive(Default)]
+pub struct Planet;
+
+/// Marker to apply gravity.
 #[derive(Default)]
 struct ApplyGravity;
 
@@ -109,11 +119,12 @@ struct PlanetBundle {
     collider: ColliderBundle,
     sync: RigidBodyPositionSync,
     gravity: ApplyGravity,
+    planet: Planet,
 }
 
 impl PlanetBundle {
     fn new_from_planet(
-        planet: &Planet,
+        planet: &PlanetConfig,
         mesh: Handle<Mesh>,
         material: Handle<StandardMaterial>,
     ) -> Self {
@@ -139,7 +150,7 @@ impl PlanetBundle {
             },
             collider: ColliderBundle {
                 shape: ColliderShape::ball(radius),
-                mass_properties: ColliderMassProps::Density(Planet::DENSITY),
+                mass_properties: ColliderMassProps::Density(PlanetConfig::DENSITY),
                 ..Default::default()
             },
             sync: RigidBodyPositionSync::Interpolated { prev_pos: None },
@@ -173,6 +184,13 @@ fn spawn_planets(
             mesh.0.clone(),
             material,
         ));
+    }
+}
+
+/// Removes all planets.
+fn remove_planets(mut commands: Commands, query: Query<Entity, With<Planet>>) {
+    for planet in query.iter() {
+        commands.entity(planet).despawn();
     }
 }
 

@@ -28,11 +28,11 @@ mod expression_serde;
 mod transforms;
 
 /// Expression for computing the per-frame score for a scene from that frame's total mass and total
-/// mass count and the tick count.
+/// mass count and the fraction of runtime that is elapsed from 0 to 1.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
-    /// The current tick.
-    Tick,
+    /// The fraction of run time that is elapsed.
+    Elapsed,
     /// The total mass for the frame.
     TotalMass,
     /// The number of masses for the frame.
@@ -47,19 +47,19 @@ pub enum Expression {
 
 impl Expression {
     /// Evaluate the expression given the scoring function inputs.
-    pub fn eval(&self, tick: f64, total_mass: f64, mass_count: f64) -> f64 {
+    pub fn eval(&self, elapsed: f64, total_mass: f64, mass_count: f64) -> f64 {
         match self {
-            Expression::Tick => tick,
+            Expression::Elapsed => elapsed,
             Expression::TotalMass => total_mass,
             Expression::MassCount => mass_count,
             Expression::Constant(value) => *value,
             Expression::BinaryOp(left, op, right) => {
-                let left = left.eval(tick, total_mass, mass_count);
-                let right = right.eval(tick, total_mass, mass_count);
+                let left = left.eval(elapsed, total_mass, mass_count);
+                let right = right.eval(elapsed, total_mass, mass_count);
                 op.eval(left, right)
             }
             Expression::UnaryOp(op, value) => {
-                let value = value.eval(tick, total_mass, mass_count);
+                let value = value.eval(elapsed, total_mass, mass_count);
                 op.eval(value)
             }
         }
@@ -145,7 +145,7 @@ impl Expression {
     /// ops. All unary ops are ranked one higher, and atoms are highest.
     fn precedence(&self) -> u32 {
         match self {
-            Expression::Tick => 5,
+            Expression::Elapsed => 5,
             Expression::TotalMass => 5,
             Expression::MassCount => 5,
             Expression::Constant(_) => 5,
@@ -166,7 +166,7 @@ impl FromStr for Expression {
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Tick => f.pad("tick"),
+            Expression::Elapsed => f.pad("elapsed"),
             Expression::TotalMass => f.pad("total_mass"),
             Expression::MassCount => f.pad("mass_count"),
             Expression::Constant(v) => f.pad(&format!("{}", v)),
@@ -290,17 +290,17 @@ mod tests {
     use self::UnaryOperator::*;
     use super::*;
 
-    const TICK: f64 = 9.;
+    const ELAPSED: f64 = 9.;
     const TOTAL_MASS: f64 = 486.8;
     const MASS_COUNT: f64 = 77.;
 
     fn assert_eval(expr: Expression, expected: f64) {
-        assert_eq!(expr.eval(TICK, TOTAL_MASS, MASS_COUNT), expected);
+        assert_eq!(expr.eval(ELAPSED, TOTAL_MASS, MASS_COUNT), expected);
     }
 
     #[test]
-    fn eval_ticks() {
-        assert_eval(Tick, TICK);
+    fn eval_elapsed() {
+        assert_eval(Elapsed, ELAPSED);
     }
 
     #[test]
@@ -321,61 +321,61 @@ mod tests {
     #[test]
     fn eval_multiply() {
         assert_eval(
-            BinaryOp(Box::new(Tick), Multiply, Box::new(Constant(2.))),
-            TICK * 2.,
+            BinaryOp(Box::new(Elapsed), Multiply, Box::new(Constant(2.))),
+            ELAPSED * 2.,
         );
     }
 
     #[test]
     fn eval_add() {
         assert_eval(
-            BinaryOp(Box::new(Tick), Add, Box::new(Constant(2.))),
-            TICK + 2.,
+            BinaryOp(Box::new(Elapsed), Add, Box::new(Constant(2.))),
+            ELAPSED + 2.,
         );
     }
 
     #[test]
     fn eval_subtract() {
         assert_eval(
-            BinaryOp(Box::new(Tick), Subtract, Box::new(Constant(2.))),
-            TICK - 2.,
+            BinaryOp(Box::new(Elapsed), Subtract, Box::new(Constant(2.))),
+            ELAPSED - 2.,
         );
     }
 
     #[test]
     fn eval_divide() {
         assert_eval(
-            BinaryOp(Box::new(Tick), Divide, Box::new(Constant(2.))),
-            TICK / 2.,
+            BinaryOp(Box::new(Elapsed), Divide, Box::new(Constant(2.))),
+            ELAPSED / 2.,
         );
     }
 
     #[test]
     fn eval_exponent() {
         assert_eval(
-            BinaryOp(Box::new(Tick), Exponent, Box::new(Constant(2.))),
-            TICK.powf(2.),
+            BinaryOp(Box::new(Elapsed), Exponent, Box::new(Constant(2.))),
+            ELAPSED.powf(2.),
         );
     }
 
     #[test]
     fn eval_positive() {
-        assert_eval(UnaryOp(Positive, Box::new(Tick)), TICK);
+        assert_eval(UnaryOp(Positive, Box::new(Elapsed)), ELAPSED);
     }
 
     #[test]
     fn eval_negative() {
-        assert_eval(UnaryOp(Negative, Box::new(Tick)), -TICK);
+        assert_eval(UnaryOp(Negative, Box::new(Elapsed)), -ELAPSED);
     }
 
     #[test]
     fn eval_natural_log() {
-        assert_eval(UnaryOp(NaturalLog, Box::new(Tick)), TICK.ln());
+        assert_eval(UnaryOp(NaturalLog, Box::new(Elapsed)), ELAPSED.ln());
     }
 
     #[test]
     fn eval_base10_log() {
-        assert_eval(UnaryOp(Base10Log, Box::new(Tick)), TICK.log10());
+        assert_eval(UnaryOp(Base10Log, Box::new(Elapsed)), ELAPSED.log10());
     }
 
     #[test]
@@ -384,7 +384,11 @@ mod tests {
             UnaryOp(
                 Negative,
                 Box::new(BinaryOp(
-                    Box::new(BinaryOp(Box::new(Tick), Multiply, Box::new(Constant(8.)))),
+                    Box::new(BinaryOp(
+                        Box::new(Elapsed),
+                        Multiply,
+                        Box::new(Constant(8.)),
+                    )),
                     Multiply,
                     Box::new(BinaryOp(
                         Box::new(Constant(1.)),
@@ -401,7 +405,7 @@ mod tests {
                     )),
                 )),
             ),
-            -(TICK * 8. * (1. + TOTAL_MASS.powf(MASS_COUNT / 1.24))),
+            -(ELAPSED * 8. * (1. + TOTAL_MASS.powf(MASS_COUNT / 1.24))),
         );
     }
 
@@ -425,11 +429,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_tick() {
-        assert_eq!(Expression::parse_unsimplified("tick"), Ok(Tick));
-        assert_eq!(Expression::parse_unsimplified("TICK"), Ok(Tick));
-        assert_eq!(Expression::parse_unsimplified("TiCk"), Ok(Tick));
-        assert_eq!(Expression::parse_unsimplified("ticK"), Ok(Tick));
+    fn parse_elapsed() {
+        assert_eq!(Expression::parse_unsimplified("elapsed"), Ok(Elapsed));
+        assert_eq!(Expression::parse_unsimplified("ELAPSED"), Ok(Elapsed));
+        assert_eq!(Expression::parse_unsimplified("TiCk"), Ok(Elapsed));
+        assert_eq!(Expression::parse_unsimplified("ticK"), Ok(Elapsed));
     }
 
     #[test]
@@ -568,13 +572,13 @@ mod tests {
         let expected = add(
             sub(
                 add(neg(1), div(mul(2, 3), exp(TotalMass, 4))),
-                mul(pos(Tick), neg(1)),
+                mul(pos(Elapsed), neg(1)),
             ),
             mul(exp(2, neg(9)), 5),
         );
-        // (((-1) + ((2*3)/(total_mass^4))) - ((+tick)*(-1))) + ((2^(-9))*5)
+        // (((-1) + ((2*3)/(total_mass^4))) - ((+elapsed)*(-1))) + ((2^(-9))*5)
         assert_eq!(
-            Expression::parse_unsimplified("-1+2*3/total_mass^4-+tick*-1+2^-9*5"),
+            Expression::parse_unsimplified("-1+2*3/total_mass^4-+elapsed*-1+2^-9*5"),
             Ok(expected),
         );
 
@@ -649,8 +653,8 @@ mod tests {
     }
 
     #[test]
-    fn display_tick() {
-        assert_display(Tick, "tick");
+    fn display_elapsed() {
+        assert_display(Elapsed, "elapsed");
     }
 
     #[test]
@@ -695,52 +699,67 @@ mod tests {
 
     #[test]
     fn display_add() {
-        assert_display(add(8, Tick), "8 + tick");
+        assert_display(add(8, Elapsed), "8 + elapsed");
     }
 
     #[test]
     fn display_sub() {
-        assert_display(sub(8, Tick), "8 - tick");
+        assert_display(sub(8, Elapsed), "8 - elapsed");
     }
 
     #[test]
     fn display_mul() {
-        assert_display(mul(8, Tick), "8 * tick");
+        assert_display(mul(8, Elapsed), "8 * elapsed");
     }
 
     #[test]
     fn display_div() {
-        assert_display(div(8, Tick), "8 / tick");
+        assert_display(div(8, Elapsed), "8 / elapsed");
     }
 
     #[test]
     fn display_exp() {
-        assert_display(exp(8, Tick), "8 ^ tick");
+        assert_display(exp(8, Elapsed), "8 ^ elapsed");
     }
 
     #[test]
     fn display_left_precedence() {
-        assert_display(mul(add(Tick, 1), MassCount), "(tick + 1) * mass_count");
-        assert_display(div(mul(Tick, 1), MassCount), "tick * 1 / mass_count");
-        assert_display(mul(div(Tick, 1), MassCount), "tick / 1 * mass_count");
-        assert_display(mul(exp(Tick, 1), MassCount), "tick ^ 1 * mass_count");
-        assert_display(exp(mul(Tick, 1), MassCount), "(tick * 1) ^ mass_count");
-        assert_display(exp(exp(Tick, 1), MassCount), "tick ^ 1 ^ mass_count");
+        assert_display(
+            mul(add(Elapsed, 1), MassCount),
+            "(elapsed + 1) * mass_count",
+        );
+        assert_display(div(mul(Elapsed, 1), MassCount), "elapsed * 1 / mass_count");
+        assert_display(mul(div(Elapsed, 1), MassCount), "elapsed / 1 * mass_count");
+        assert_display(mul(exp(Elapsed, 1), MassCount), "elapsed ^ 1 * mass_count");
+        assert_display(
+            exp(mul(Elapsed, 1), MassCount),
+            "(elapsed * 1) ^ mass_count",
+        );
+        assert_display(exp(exp(Elapsed, 1), MassCount), "elapsed ^ 1 ^ mass_count");
     }
 
     #[test]
     fn display_right_precedence() {
-        assert_display(mul(MassCount, add(Tick, 1)), "mass_count * (tick + 1)");
-        assert_display(mul(MassCount, mul(Tick, 1)), "mass_count * (tick * 1)");
-        assert_display(mul(MassCount, exp(Tick, 1)), "mass_count * tick ^ 1");
-        assert_display(exp(MassCount, exp(Tick, 1)), "mass_count ^ (tick ^ 1)");
+        assert_display(
+            mul(MassCount, add(Elapsed, 1)),
+            "mass_count * (elapsed + 1)",
+        );
+        assert_display(
+            mul(MassCount, mul(Elapsed, 1)),
+            "mass_count * (elapsed * 1)",
+        );
+        assert_display(mul(MassCount, exp(Elapsed, 1)), "mass_count * elapsed ^ 1");
+        assert_display(
+            exp(MassCount, exp(Elapsed, 1)),
+            "mass_count ^ (elapsed ^ 1)",
+        );
     }
 
     #[test]
     fn display_precedence_with_unary() {
         assert_display(
-            mul(add(neg(3), log(4)), ln(add(Tick, 1))),
-            "(-3 + log(4)) * ln(tick + 1)",
+            mul(add(neg(3), log(4)), ln(add(Elapsed, 1))),
+            "(-3 + log(4)) * ln(elapsed + 1)",
         );
     }
 

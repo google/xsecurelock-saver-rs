@@ -13,6 +13,7 @@
 // limitations under the License.
 use bevy::prelude::*;
 use bevy::render::camera::{Camera, PerspectiveProjection};
+use bevy_skybox_cubemap::{SkyboxBundle, SkyboxMaterial, SkyboxPlugin};
 use xsecurelock_saver::engine::XSecurelockSaverPlugins;
 
 fn main() {
@@ -20,6 +21,7 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.9)))
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(XSecurelockSaverPlugins)
+        .add_plugin(SkyboxPlugin)
         .add_startup_system(setup.system())
         .add_system(spin_camera.system())
         .run();
@@ -43,7 +45,13 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut skyboxes: ResMut<Assets<SkyboxMaterial>>,
 ) {
+    // background color
+    commands.spawn_bundle(SkyboxBundle::new(skyboxes.add(SkyboxMaterial {
+        color: Color::rgb(0.1, 0.1, 0.7),
+        ..Default::default()
+    })));
     // plane
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 50.0 })),

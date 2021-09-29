@@ -14,6 +14,8 @@
 
 //! Contains configuration structs for the scoring system.
 
+use std::time::Duration;
+
 use serde::de::{Error, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -25,65 +27,63 @@ use crate::statustracker::ScoringFunction;
 pub struct ScoringConfig {
     /// The number of physics ticks to count the score for. Physics ticks are defined to be 16
     /// milliseconds long. Defaults to 3750, which is approximately 60 seconds.
-    pub scored_ticks: u32,
+    #[serde(with = "humantime_serde")]
+    pub scored_time: Duration,
 
     /// The region where planets actually count towards the scenario score.
     pub scored_area: ScoredArea,
 
     /// Expression that is evaluated each frame to determine the score for that frame, to be added
     /// to the cumulative score. This is a simple math expression and can use three variables:
-    /// - `tick` is the frame number, from zero to `scored_ticks`.
+    ///
+    /// - `elapsed` is the percentage of scenario time that has completed, from 0 to 1.
     /// - `total_mass` is the total mass of all planets in the `scored_area`.
     /// - `mass_count` is the number of masses in the `scored_area`.
-    pub per_frame_scoring: ScoringFunction,
+    ///
+    /// The score is "per second" because the output is multiplied by delta time before adding it to
+    /// the total score.
+    pub score_per_second: ScoringFunction,
 }
 
 impl Default for ScoringConfig {
     fn default() -> Self {
         ScoringConfig {
-            // 1 minute (60,000 milliseconds) / 16 milliseconds per tick
-            scored_ticks: 3750,
+            scored_time: Duration::from_secs(60),
             scored_area: Default::default(),
-            per_frame_scoring: "total_mass * mass_count".parse().unwrap(),
+            score_per_second: "total_mass * mass_count".parse().unwrap(),
         }
     }
 }
 
 /// Defines the area where planets are actually scored. Area is centered on the origin, and planets
-/// outside of it don't get any score. Note that the screen is scaled on startup, so the units are
-/// *not* pixels. In general the screen is set up so that the height is 2000 units and the width is
-/// height * aspect-ratio.
-///
-/// The default size is 4000x4000. On a 16:9 monitor with 2000 high, the width will be ~3555, so
-/// 4000x4000 gives a nice rectangular scoring area with a bit of margin on most standard ratio
-/// monitors. Some users may want to modify this to match their monitors.
-///
-/// If you want to match individual monitor sizes, you can use `scale_width_by_aspect` to scale the
-/// width according to the aspect ratio of the monitor. With this on, if you want to exactly match
-/// the screen, you should set both height and width to 2000.
+/// outside of it don't get any score.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct ScoredArea {
     // TODO(zstewar1): use a Range<Vector> for the scored area.
-    /// The width of the scored region. Defaults to 4000.
-    #[serde(deserialize_with = "scored_area_wh_deserialize")]
+    /// The width (x) of the scored region. Defaults to 4000.
+    #[serde(deserialize_with = "scored_area_whd_deserialize")]
     pub width: f32,
-    /// The height of the scored region. Defaults to 4000.
-    #[serde(deserialize_with = "scored_area_wh_deserialize")]
+    /// The height (y) of the scored region. Defaults to 4000.
+    #[serde(deserialize_with = "scored_area_whd_deserialize")]
     pub height: f32,
+    /// The depth (z) of the scored region. Defaults to 4000.
+    #[serde(deserialize_with = "scored_area_whd_deserialize")]
+    pub depth: f32,
 }
 
 impl Default for ScoredArea {
     fn default() -> Self {
         ScoredArea {
-            width: 4000.,
-            height: 4000.,
+            width: 4000.0,
+            height: 4000.0,
+            depth: 4000.0,
         }
     }
 }
 
 /// Deserializes the width or height of ScoredArea, flipping negatives and changing 0 to 4000.
-fn scored_area_wh_deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+fn scored_area_whd_deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
 where
     D: Deserializer<'de>,
 {

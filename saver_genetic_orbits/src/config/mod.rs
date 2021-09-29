@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2018-2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@ use bevy::prelude::*;
 use figment::providers::{Format, Serialized, Yaml};
 use figment::Figment;
 
+use self::camera::CameraConfig;
 use self::database::DatabaseConfig;
 use self::generator::GeneratorConfig;
 use self::scoring::ScoringConfig;
 
+pub mod camera;
 pub mod database;
 pub mod generator;
 pub mod scoring;
@@ -58,15 +60,18 @@ impl Plugin for ConfigPlugin {
             figment = figment.merge(Yaml::file(home_dir));
         }
 
+        let camconf = figment.extract::<CameraConfig>().unwrap();
         let dbconf = figment.extract::<DatabaseConfig>().unwrap();
         let scoreconf = figment.extract::<ScoringConfig>().unwrap();
         let genconf = figment.extract::<GeneratorConfig>().unwrap();
 
+        info!("Loaded camera config: {:?}", camconf);
         info!("Loaded database config: {:?}", dbconf);
         info!("Loaded score config: {:?}", scoreconf);
         info!("Loaded generator config: {:?}", genconf);
 
-        app.insert_resource(dbconf)
+        app.insert_resource(camconf)
+            .insert_resource(dbconf)
             .insert_resource(scoreconf)
             .insert_resource(genconf);
     }

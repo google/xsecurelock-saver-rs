@@ -27,7 +27,7 @@ extern {
 }
 
 BinaryOpTier<Op, NextTier>: Expression = {
-    <lhs:BinaryOpTier<Op, NextTier>> <op:Op> <rhs:NextTier> => 
+    <lhs:BinaryOpTier<Op, NextTier>> <op:Op> <rhs:NextTier> =>
         Expression::BinaryOp(Box::new(lhs), op, Box::new(rhs)),
     NextTier,
 };
@@ -48,10 +48,10 @@ Term: Expression = {
 };
 
 Atom: Expression = {
-    r"(?i)tick" => Expression::Tick,
+    r"(?i)elapsed" => Expression::Elapsed,
     r"(?i)total_mass" => Expression::TotalMass,
     r"(?i)mass_count" => Expression::MassCount,
-    <loc: @L> <val:r"([0-9]+\.[0-9]+|[0-9]+\.|\.[0-9]+|[0-9]+)([eE][-+]?[0-9]+)?"> =>? 
+    <loc: @L> <val:r"([0-9]+\.[0-9]+|[0-9]+\.|\.[0-9]+|[0-9]+)([eE][-+]?[0-9]+)?"> =>?
         match val.parse::<f64>() {
             Ok(value) => Ok(Expression::Constant(value)),
             Err(err) => Err(ParseError::User { error: (loc, err) }),

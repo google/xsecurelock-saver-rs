@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2018-2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,6 +69,7 @@ where
 /// A random distribution. This enum is used in places where the configuration should have a choice
 /// of several different distribution types.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum Distribution {
     /// Use an exponential distribution.

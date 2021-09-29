@@ -7,4 +7,5 @@ edition = "2018"
 
 [dependencies]
 bevy = "0.5.0"
+bevy_skybox_cubemap = "0.1.0"
 xsecurelock-saver = { path = "../xsecurelock-saver", features = ["engine"] }

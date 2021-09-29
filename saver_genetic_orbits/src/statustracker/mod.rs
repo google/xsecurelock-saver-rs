@@ -15,9 +15,13 @@
 use std::str::FromStr;
 
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::config::scoring::ScoringConfig;
 use crate::model::{Scenario, World};
+use crate::world::Planet;
+use crate::SaverState;
 
 use self::scoring_function::Expression;
 
@@ -27,7 +31,8 @@ pub struct ScoringPlugin;
 
 impl Plugin for ScoringPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.insert_resource(ActiveWorld::default());
+        app.init_resource::<ActiveWorld>()
+            .add_system_set(SystemSet::on_update(SaverState::Run).with_system(score.system()));
     }
 }
 
@@ -37,8 +42,8 @@ pub struct ScoringFunction(Expression);
 
 impl ScoringFunction {
     /// Evaluate the expression given the scoring function inputs.
-    pub fn eval(&self, tick: f64, total_mass: f64, mass_count: f64) -> f64 {
-        self.0.eval(tick, total_mass, mass_count)
+    pub fn eval(&self, elapsed_fract: f64, total_mass: f64, mass_count: f64) -> f64 {
+        self.0.eval(elapsed_fract, total_mass, mass_count)
     }
 }
 
@@ -59,7 +64,7 @@ pub struct ActiveWorld {
     /// The score the world has received so far.
     pub cumulative_score: f64,
     /// The number of physics ticks that the world has been scored on so far.
-    pub ticks_completed: u32,
+    pub timer: Timer,
 }
 
 impl ActiveWorld {
@@ -68,18 +73,58 @@ impl ActiveWorld {
         self.world = world;
         self.parent = parent;
         self.cumulative_score = 0.0;
-        self.ticks_completed = 0;
+        self.timer.reset();
     }
 }
 
-impl Default for ActiveWorld {
-    fn default() -> Self {
+impl FromWorld for ActiveWorld {
+    fn from_world(world: &mut bevy::ecs::world::World) -> Self {
+        let config = world.get_resource::<ScoringConfig>().unwrap();
         ActiveWorld {
             world: World { planets: vec![] },
             parent: None,
             cumulative_score: 0.,
-            ticks_completed: 0,
+            timer: Timer::new(config.scored_time, false),
         }
+    }
+}
+
+/// Compute the scenario score for each frame.
+fn score(
+    time: Res<Time>,
+    mut world: ResMut<ActiveWorld>,
+    config: Res<ScoringConfig>,
+    query: Query<&RigidBodyMassProps, With<Planet>>,
+    mut state: ResMut<State<SaverState>>,
+) {
+    world.timer.tick(time.delta());
+
+    let scenario_time = world.timer.percent() as f64;
+    let mut mass_count = 0.0;
+    let mut total_mass = 0.0;
+
+    let maxx = config.scored_area.width / 2.0;
+    let maxy = config.scored_area.height / 2.0;
+    let maxz = config.scored_area.depth / 2.0;
+
+    for rb in query.iter() {
+        if rb.world_com.x.abs() > maxx || rb.world_com.y.abs() > maxy || rb.world_com.z.abs() > maxz
+        {
+            continue;
+        }
+        mass_count += 1.0;
+        total_mass += rb.mass() as f64;
+    }
+
+    world.cumulative_score += config
+        .score_per_second
+        .eval(scenario_time, total_mass, mass_count)
+        * time.delta_seconds_f64();
+
+    if world.timer.just_finished() {
+        state
+            .set(SaverState::Generate)
+            .expect("Unable to switch to scenario generation");
     }
 }
 

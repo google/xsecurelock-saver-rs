@@ -147,7 +147,7 @@ mod tests {
     #[test]
     fn simplify_nop_for_atoms() {
         assert_simplify(1.5, 1.5);
-        assert_simplify(Tick, Tick);
+        assert_simplify(Elapsed, Elapsed);
         assert_simplify(TotalMass, TotalMass);
         assert_simplify(MassCount, MassCount);
     }
@@ -161,17 +161,17 @@ mod tests {
 
     #[test]
     fn simplify_const_subexprs() {
-        assert_simplify(exp(Tick, mul(3, 4)), exp(Tick, 3 * 4));
+        assert_simplify(exp(Elapsed, mul(3, 4)), exp(Elapsed, 3 * 4));
         assert_simplify(
-            sub(add(Tick, mul(5, 6)), exp(add(1, mul(8, 9)), MassCount)),
-            sub(add(Tick, 5 * 6), exp(1 + 8 * 9, MassCount)),
+            sub(add(Elapsed, mul(5, 6)), exp(add(1, mul(8, 9)), MassCount)),
+            sub(add(Elapsed, 5 * 6), exp(1 + 8 * 9, MassCount)),
         );
     }
 
     #[test]
     fn simplify_nested_negations() {
         assert_simplify(neg(pos(neg(neg(4)))), -4.);
-        assert_simplify(neg(pos(neg(neg(Tick)))), neg(Tick));
+        assert_simplify(neg(pos(neg(neg(Elapsed)))), neg(Elapsed));
     }
 
     fn assert_simplify<O: Into<Expression>, E: Into<Expression>>(original: O, expected: E) {
