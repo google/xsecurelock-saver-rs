@@ -432,8 +432,8 @@ mod tests {
     fn parse_elapsed() {
         assert_eq!(Expression::parse_unsimplified("elapsed"), Ok(Elapsed));
         assert_eq!(Expression::parse_unsimplified("ELAPSED"), Ok(Elapsed));
-        assert_eq!(Expression::parse_unsimplified("TiCk"), Ok(Elapsed));
-        assert_eq!(Expression::parse_unsimplified("ticK"), Ok(Elapsed));
+        assert_eq!(Expression::parse_unsimplified("ElApSeD"), Ok(Elapsed));
+        assert_eq!(Expression::parse_unsimplified("elaPSED"), Ok(Elapsed));
     }
 
     #[test]
