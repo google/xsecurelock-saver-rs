@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::mem;
 use std::str::FromStr;
 
+use bevy::ecs::component::Component;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::config::scoring::ScoringConfig;
 use crate::model::{Scenario, World};
+use crate::storage::Storage;
+use crate::storage::sqlite::SqliteStorage;
 use crate::world::Planet;
 use crate::SaverState;
 
@@ -32,7 +36,15 @@ pub struct ScoringPlugin;
 impl Plugin for ScoringPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<ActiveWorld>()
-            .add_system_set(SystemSet::on_update(SaverState::Run).with_system(score.system()));
+            .add_startup_system(setup.system())
+            .add_system_set(
+                SystemSet::on_update(SaverState::Run)
+                    .with_system(score.system().label("compute-score"))
+                    .with_system(score_text.system().after("compute-score")),
+            )
+            .add_system_set(
+                SystemSet::on_exit(SaverState::Run)
+                    .with_system(store_result::<SqliteStorage>.system()));
     }
 }
 
@@ -89,6 +101,44 @@ impl FromWorld for ActiveWorld {
     }
 }
 
+/// Marker component for the score text entity.
+struct ScoreText;
+
+/// Adds a ui camera and score keeper text.
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn_bundle(UiCameraBundle::default());
+    commands
+        .spawn_bundle(TextBundle {
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                ..Default::default()
+            },
+            text: Text {
+                sections: vec![
+                    TextSection {
+                        value: "Score: ".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                        },
+                    },
+                    TextSection {
+                        value: "".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                            font_size: 60.0,
+                            color: Color::GOLD,
+                        },
+                    },
+                ],
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(ScoreText);
+}
+
 /// Compute the scenario score for each frame.
 fn score(
     time: Res<Time>,
@@ -125,6 +175,41 @@ fn score(
         state
             .set(SaverState::Generate)
             .expect("Unable to switch to scenario generation");
+    }
+}
+
+/// Put the score in the score text.
+fn score_text(world: Res<ActiveWorld>, mut query: Query<&mut Text, With<ScoreText>>) {
+    for mut text in query.iter_mut() {
+        text.sections[1].value = format!("{:.2}", world.cumulative_score);
+    }
+}
+
+/// Store scenario results.
+fn store_result<S: Storage + Component>(mut tracker: ResMut<ActiveWorld>, mut storage: ResMut<S>) {
+    info!("Storing scored world");
+    let world = mem::replace(&mut tracker.world, World::default());
+    let parent = mem::replace(&mut tracker.parent, None);
+    let score = if tracker.cumulative_score.is_nan() {
+        warn!("Score was NaN, replacing with -inf");
+        f64::NEG_INFINITY
+    } else {
+        tracker.cumulative_score
+    };
+    let store_result = match parent {
+        Some(parent) => storage.add_child_scenario(world, score, &parent),
+        None => storage.add_root_scenario(world, score),
+    };
+    match store_result {
+        Err(error) => error!("Error while storing finished scenario: {}", error),
+        Ok(scenario) => info!(
+            "Saved scenario {} (parent: {:?}, family: {}, generation: {}) with score {}",
+            scenario.id,
+            scenario.parent,
+            scenario.family,
+            scenario.generation,
+            scenario.score,
+        ),
     }
 }
 
