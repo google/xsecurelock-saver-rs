@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::scoring::ScoringConfig;
 use crate::model::{Scenario, World};
-use crate::storage::Storage;
 use crate::storage::sqlite::SqliteStorage;
+use crate::storage::Storage;
 use crate::world::Planet;
 use crate::SaverState;
 
@@ -44,7 +44,8 @@ impl Plugin for ScoringPlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(SaverState::Run)
-                    .with_system(store_result::<SqliteStorage>.system()));
+                    .with_system(store_result::<SqliteStorage>.system()),
+            );
     }
 }
 
@@ -204,11 +205,7 @@ fn store_result<S: Storage + Component>(mut tracker: ResMut<ActiveWorld>, mut st
         Err(error) => error!("Error while storing finished scenario: {}", error),
         Ok(scenario) => info!(
             "Saved scenario {} (parent: {:?}, family: {}, generation: {}) with score {}",
-            scenario.id,
-            scenario.parent,
-            scenario.family,
-            scenario.generation,
-            scenario.score,
+            scenario.id, scenario.parent, scenario.family, scenario.generation, scenario.score,
         ),
     }
 }
