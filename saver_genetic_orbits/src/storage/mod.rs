@@ -49,7 +49,11 @@ impl Plugin for StoragePlugin {
 
 fn open_from_conf(path: Option<&PathBuf>) -> SqliteStorage {
     match path {
-        Some(path) => SqliteStorage::open(path),
+        Some(path) => {
+            let parent = path.parent().expect("Storage path has no parent");
+            std::fs::create_dir_all(parent).expect("Could not create storage dir");
+            SqliteStorage::open(path)
+        }
         None => SqliteStorage::open_in_memory(),
     }
     .expect("Unable to open storage")
