@@ -37,7 +37,7 @@ pub struct WorldGeneratorPlugin;
 
 impl Plugin for WorldGeneratorPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.insert_resource(DelayResume(Timer::new(Duration::from_millis(500), false)))
+        app.insert_resource(DelayResume(Timer::new(Duration::from_secs(5), false)))
             .add_system_set(
                 SystemSet::on_enter(SaverState::Generate)
                     .with_system(generate_world::<SqliteStorage>.system()),

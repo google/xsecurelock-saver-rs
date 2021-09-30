@@ -38,9 +38,18 @@ impl Plugin for ScoringPlugin {
         app.init_resource::<ActiveWorld>()
             .add_startup_system(setup.system())
             .add_system_set(
+                SystemSet::on_enter(SaverState::Run)
+                    .with_system(parent_text.system())
+                    .with_system(parent_score_text.system())
+                    .with_system(generation_text.system())
+                    .with_system(family_text.system())
+                    .with_system(high_score_text::<SqliteStorage>.system()),
+            )
+            .add_system_set(
                 SystemSet::on_update(SaverState::Run)
                     .with_system(score.system().label("compute-score"))
-                    .with_system(score_text.system().after("compute-score")),
+                    .with_system(score_text.system().after("compute-score"))
+                    .with_system(time_left_text.system().after("compute-score")),
             )
             .add_system_set(
                 SystemSet::on_exit(SaverState::Run)
@@ -105,39 +114,326 @@ impl FromWorld for ActiveWorld {
 /// Marker component for the score text entity.
 struct ScoreText;
 
+struct ParentText;
+
+struct FamilyText;
+
+struct GenerationText;
+
+struct ParentScoreText;
+
+struct HighScoreText;
+
+struct TimeLeftText;
+
 /// Adds a ui camera and score keeper text.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    const FONT_SIZE: f32 = 18.0;
+
     commands.spawn_bundle(UiCameraBundle::default());
+
     commands
-        .spawn_bundle(TextBundle {
+        .spawn_bundle(NodeBundle {
             style: Style {
-                align_self: AlignSelf::FlexEnd,
+                flex_direction: FlexDirection::ColumnReverse,
+                position_type: PositionType::Absolute,
+                position: Rect::all(Val::Percent(0.0)),
                 ..Default::default()
             },
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "Score: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
-                            font_size: 60.0,
-                            color: Color::WHITE,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
-                            font_size: 60.0,
-                            color: Color::GOLD,
-                        },
-                    },
-                ],
-                ..Default::default()
+            visible: Visible {
+                is_transparent: false,
+                is_visible: false,
             },
             ..Default::default()
         })
-        .insert(ScoreText);
+        .with_children(|root| {
+            root.spawn_bundle(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                    margin: Rect::all(Val::Px(10.0)),
+                    ..Default::default()
+                },
+                visible: Visible {
+                    is_transparent: false,
+                    is_visible: false,
+                },
+                ..Default::default()
+            })
+            .with_children(|row| {
+                row.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::ColumnReverse,
+                        ..Default::default()
+                    },
+                    visible: Visible {
+                        is_transparent: false,
+                        is_visible: false,
+                    },
+                    ..Default::default()
+                })
+                .with_children(|left_col| {
+                    // Score text
+                    left_col
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexStart,
+                                ..Default::default()
+                            },
+                            text: Text {
+                                sections: vec![
+                                    TextSection {
+                                        value: "Score: ".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::WHITE,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::GOLD,
+                                        },
+                                    },
+                                ],
+                                alignment: TextAlignment {
+                                    horizontal: HorizontalAlign::Left,
+                                    vertical: VerticalAlign::Top,
+                                },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                        .insert(ScoreText);
+
+                    left_col
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexStart,
+                                ..Default::default()
+                            },
+                            text: Text {
+                                sections: vec![
+                                    TextSection {
+                                        value: "Time Left: ".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::WHITE,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "N/A".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::GOLD,
+                                        },
+                                    },
+                                ],
+                                alignment: TextAlignment {
+                                    horizontal: HorizontalAlign::Left,
+                                    vertical: VerticalAlign::Top,
+                                },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                        .insert(TimeLeftText);
+                });
+
+                row.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::ColumnReverse,
+                        ..Default::default()
+                    },
+                    visible: Visible {
+                        is_transparent: false,
+                        is_visible: false,
+                    },
+                    ..Default::default()
+                })
+                .with_children(|right_col| {
+                    right_col
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexEnd,
+                                ..Default::default()
+                            },
+                            text: Text {
+                                sections: vec![
+                                    TextSection {
+                                        value: "Parent: ".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::WHITE,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "None".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::GOLD,
+                                        },
+                                    },
+                                ],
+                                alignment: TextAlignment {
+                                    horizontal: HorizontalAlign::Right,
+                                    vertical: VerticalAlign::Top,
+                                },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                        .insert(ParentText);
+
+                    right_col
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexEnd,
+                                ..Default::default()
+                            },
+                            text: Text {
+                                sections: vec![
+                                    TextSection {
+                                        value: "Family: ".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::WHITE,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "None".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::GOLD,
+                                        },
+                                    },
+                                ],
+                                alignment: TextAlignment {
+                                    horizontal: HorizontalAlign::Right,
+                                    vertical: VerticalAlign::Top,
+                                },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                        .insert(FamilyText);
+
+                    right_col
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexEnd,
+                                ..Default::default()
+                            },
+                            text: Text {
+                                sections: vec![
+                                    TextSection {
+                                        value: "Generation: ".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::WHITE,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "0".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::GOLD,
+                                        },
+                                    },
+                                ],
+                                alignment: TextAlignment {
+                                    horizontal: HorizontalAlign::Right,
+                                    vertical: VerticalAlign::Top,
+                                },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                        .insert(GenerationText);
+
+                    right_col
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexEnd,
+                                ..Default::default()
+                            },
+                            text: Text {
+                                sections: vec![
+                                    TextSection {
+                                        value: "Parent Score: ".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::WHITE,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "N/A".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::GOLD,
+                                        },
+                                    },
+                                ],
+                                alignment: TextAlignment {
+                                    horizontal: HorizontalAlign::Right,
+                                    vertical: VerticalAlign::Top,
+                                },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                        .insert(ParentScoreText);
+
+                    right_col
+                        .spawn_bundle(TextBundle {
+                            style: Style {
+                                align_self: AlignSelf::FlexEnd,
+                                ..Default::default()
+                            },
+                            text: Text {
+                                sections: vec![
+                                    TextSection {
+                                        value: "High Score: ".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraSans-Book.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::WHITE,
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "N/A".to_string(),
+                                        style: TextStyle {
+                                            font: asset_server.load("fonts/FiraMono-Regular.ttf"),
+                                            font_size: FONT_SIZE,
+                                            color: Color::GOLD,
+                                        },
+                                    },
+                                ],
+                                alignment: TextAlignment {
+                                    horizontal: HorizontalAlign::Right,
+                                    vertical: VerticalAlign::Top,
+                                },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                        .insert(HighScoreText);
+                });
+            });
+        });
 }
 
 /// Compute the scenario score for each frame.
@@ -183,6 +479,73 @@ fn score(
 fn score_text(world: Res<ActiveWorld>, mut query: Query<&mut Text, With<ScoreText>>) {
     for mut text in query.iter_mut() {
         text.sections[1].value = format!("{:.2}", world.cumulative_score);
+    }
+}
+
+/// Add the parent id.
+fn parent_text(world: Res<ActiveWorld>, mut query: Query<&mut Text, With<ParentText>>) {
+    for mut text in query.iter_mut() {
+        match world.parent {
+            None => text.sections[1].value = "None".to_string(),
+            Some(ref parent) => text.sections[1].value = format!("{}", parent.id),
+        }
+    }
+}
+
+/// Add the parent score.
+fn parent_score_text(world: Res<ActiveWorld>, mut query: Query<&mut Text, With<ParentScoreText>>) {
+    for mut text in query.iter_mut() {
+        match world.parent {
+            None => text.sections[1].value = "N/A".to_string(),
+            Some(ref parent) => text.sections[1].value = format!("{:.2}", parent.score),
+        }
+    }
+}
+
+/// Add the generation number.
+fn generation_text(world: Res<ActiveWorld>, mut query: Query<&mut Text, With<GenerationText>>) {
+    for mut text in query.iter_mut() {
+        match world.parent {
+            None => text.sections[1].value = "0".to_string(),
+            Some(ref parent) => text.sections[1].value = format!("{}", parent.generation + 1),
+        }
+    }
+}
+
+/// Add the family id.
+fn family_text(world: Res<ActiveWorld>, mut query: Query<&mut Text, With<FamilyText>>) {
+    for mut text in query.iter_mut() {
+        match world.parent {
+            None => text.sections[1].value = "None".to_string(),
+            Some(ref parent) => text.sections[1].value = format!("{}", parent.family),
+        }
+    }
+}
+
+/// Add the high score
+fn high_score_text<S: Storage + Component>(
+    mut storage: ResMut<S>,
+    mut query: Query<&mut Text, With<HighScoreText>>,
+) {
+    let highest = storage.get_nth_scenario_by_score(0).unwrap();
+    for mut text in query.iter_mut() {
+        match highest {
+            None => text.sections[1].value = "None".to_string(),
+            Some(ref highest) => text.sections[1].value = format!("{:.2}", highest.score),
+        }
+    }
+}
+
+/// Show the time remaining
+fn time_left_text(world: Res<ActiveWorld>, mut query: Query<&mut Text, With<TimeLeftText>>) {
+    let duration = world.timer.duration();
+    let remaining = duration.mul_f32(world.timer.percent_left());
+    let secs = remaining.as_secs();
+    let mins = secs / 60;
+    let secs = secs % 60;
+    let ms = remaining.subsec_millis();
+    for mut text in query.iter_mut() {
+        text.sections[1].value = format!("{}:{:02}.{:03}", mins, secs, ms);
     }
 }
 

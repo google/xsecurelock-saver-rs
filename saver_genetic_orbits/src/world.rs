@@ -34,12 +34,11 @@ impl Plugin for WorldPlugin {
             .add_startup_system(remove_rapier_gravity.system())
             .add_system(rotate_camera.system())
             .add_system_set(
-                SystemSet::on_enter(SaverState::Run).with_system(spawn_planets.system()),
+                SystemSet::on_enter(SaverState::Run)
+                    .with_system(remove_planets.system().label("remove-old"))
+                    .with_system(spawn_planets.system().after("remove-old")),
             )
-            .add_system_set(SystemSet::on_update(SaverState::Run).with_system(gravity.system()))
-            .add_system_set(
-                SystemSet::on_exit(SaverState::Run).with_system(remove_planets.system()),
-            );
+            .add_system(gravity.system());
     }
 }
 
