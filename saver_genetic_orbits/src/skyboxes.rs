@@ -53,11 +53,14 @@ fn setup(
         skyboxes.0.push(mat);
     }
 
-    commands.spawn_bundle(SkyboxBundle::default());
+    commands.spawn_bundle(SkyboxBundle::new(choose_skybox(&*skyboxes)));
 }
 
 /// Randomly selects a new skybox texture.
 fn change_skybox(mut query: Query<&mut Handle<SkyboxMaterial>>, skyboxes: Res<Skyboxes>) {
-    let skybox = skyboxes.0.choose(&mut rand::thread_rng()).unwrap().clone();
-    *query.single_mut().unwrap() = skybox;
+    *query.single_mut().unwrap() = choose_skybox(&*skyboxes);
+}
+
+fn choose_skybox(skyboxes: &Skyboxes) -> Handle<SkyboxMaterial> {
+    skyboxes.0.choose(&mut rand::thread_rng()).unwrap().clone()
 }

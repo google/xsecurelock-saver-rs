@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::time::Duration;
+
 use bevy::ecs::component::Component;
 use bevy::prelude::*;
 use rand_distr::{Bernoulli, Distribution, Exp, Normal, Uniform};
@@ -35,19 +37,23 @@ pub struct WorldGeneratorPlugin;
 
 impl Plugin for WorldGeneratorPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system_set(
-            SystemSet::on_enter(SaverState::Generate)
-                .with_system(generate_world::<SqliteStorage>.system()),
-        );
+        app.insert_resource(DelayResume(Timer::new(Duration::from_millis(500), false)))
+            .add_system_set(
+                SystemSet::on_enter(SaverState::Generate)
+                    .with_system(generate_world::<SqliteStorage>.system()),
+            )
+            .add_system_set(
+                SystemSet::on_update(SaverState::Generate).with_system(resume.system()),
+            );
     }
 }
 
 /// Generates a new world to run and inserts it into ActiveWorld, then sets the state to Run.
 fn generate_world<S: Storage + Component>(
-    mut state: ResMut<State<SaverState>>,
     config: Res<GeneratorConfig>,
     mut storage: ResMut<S>,
     mut scenario: ResMut<ActiveWorld>,
+    mut resume: ResMut<DelayResume>,
 ) {
     info!("Generating world");
     let parent = pick_parent(&mut *storage, config.create_new_scenario_probability);
@@ -59,8 +65,18 @@ fn generate_world<S: Storage + Component>(
 
     scenario.start(world, parent);
 
-    if let Err(err) = state.set(SaverState::Run) {
-        warn!("Failed to switch from generate to run: {:?}", err);
+    resume.0.reset();
+}
+
+struct DelayResume(Timer);
+
+/// Delays returning to run by half a second.
+fn resume(mut state: ResMut<State<SaverState>>, mut timer: ResMut<DelayResume>, time: Res<Time>) {
+    timer.0.tick(time.delta());
+    if timer.0.just_finished() {
+        if let Err(err) = state.set(SaverState::Run) {
+            warn!("Failed to switch from generate to run: {:?}", err);
+        }
     }
 }
 
